@@ -1,4 +1,5 @@
 **/*.rs.bk
 .trigger
+/Cargo.lock
 /target
 /tmp
