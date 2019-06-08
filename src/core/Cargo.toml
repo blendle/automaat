@@ -1,0 +1,17 @@
+[package]
+name = "automaat-core"
+version = "0.1.0"
+authors = ["Jean Mertz <jean@mertz.fm>"]
+license = "MIT/Apache-2.0"
+description = "Automation task scheduler"
+repository = "https://github.com/blendle/automaat"
+documentation = "https://docs.rs/automaat-core"
+keywords = ["automaat", "automation"]
+categories = ["command-line-utilities"]
+readme = "README.md"
+include = ["Cargo.toml", "src/**/*.rs", "README.md", "LICENSE-APACHE", "LICENSE-MIT"]
+edition = "2018"
+
+[dependencies]
+serde = "1"
+tempfile = "3"
