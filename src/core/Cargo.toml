@@ -12,6 +12,9 @@ readme = "README.md"
 include = ["Cargo.toml", "src/**/*.rs", "README.md", "LICENSE-APACHE", "LICENSE-MIT"]
 edition = "2018"
 
+[badges]
+travis-ci = { repository = "blendle/automaat" }
+
 [dependencies]
 serde = "1"
 tempfile = "3"
