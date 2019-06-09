@@ -24,6 +24,21 @@ When making a feature request, please make it clear what problem you intend to
 solve with the feature, any ideas for how Automaat could support solving that
 problem, any possible alternatives, and any disadvantages.
 
+## Useful resources
+
+Here's a list of useful resources that can help you during your contributions to
+the project:
+
+- [Rust Language Cheat Sheet](https://cheats.rs)
+- [Rust API Guidelines](https://rust-lang-nursery.github.io/api-guidelines/)
+- [Rust Book](https://doc.rust-lang.org/book/)
+- [Rust By Example](https://doc.rust-lang.org/stable/rust-by-example/)
+- [Rust Reference](https://doc.rust-lang.org/stable/reference/)
+- [Read Rust](https://readrust.net)
+- [Rust Standard Library](https://doc.rust-lang.org/stable/std/)
+- [Rust Compiler Error Index](https://doc.rust-lang.org/error-index.html)
+- [Rust Learning Resources](https://github.com/ctjhoa/rust-learning)
+
 ## Running the test suite
 
 We encourage you to check that the test suite passes locally before submitting a
