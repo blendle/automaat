@@ -13,5 +13,6 @@ before_script:
   - rustup component add rustfmt
 script:
   - cargo fmt --verbose -- --check
+  - cargo doc --verbose --all --all-features --no-deps
   - cargo build --verbose --all --all-features
   - cargo test --verbose --all --all-features

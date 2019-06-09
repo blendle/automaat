@@ -33,7 +33,8 @@
 //! a single `Pipeline`, combined with a set of runtime `Variable`s, to create
 //! easy-to-use workflows to perform a specific task.
 //!
-//! [pg]: https://docs.rs/automaat-processor-shell-command
+//! [pg]: https://docs.rs/automaat-processor-git-clone
+//! [ps]: https://docs.rs/automaat-processor-shell-command
 //! [pr]: https://docs.rs/automaat-processor-redis-command
 //! [px]: https://docs.rs/automaat-processor-string-regex
 //! [po]: https://docs.rs/automaat-processor-print-output
