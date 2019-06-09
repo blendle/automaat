@@ -2,4 +2,5 @@
 members = [
     "src/core",
     "src/processors/git-clone",
+    "src/processors/print-output",
 ]
