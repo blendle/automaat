@@ -10,9 +10,12 @@ matrix:
     - rust: nightly
   fast_finish: true
 before_script:
+  - echo "$TRAVIS_RUST_VERSION" > rust-toolchain
   - rustup component add rustfmt
 script:
   - cargo fmt --verbose -- --check
   - cargo doc --verbose --all --all-features --no-deps
   - cargo build --verbose --all --all-features
   - cargo test --verbose --all --all-features
+before_cache:
+  - rm rust-toolchain
