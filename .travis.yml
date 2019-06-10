@@ -13,6 +13,7 @@ matrix:
 before_script:
   - echo "$TRAVIS_RUST_VERSION" > rust-toolchain
   - rustup component add rustfmt
+  - rustup show
 script:
   - cargo fmt --verbose -- --check
   - cargo doc --verbose --all --all-features --no-deps
