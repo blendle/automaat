@@ -19,5 +19,7 @@ script:
   - cargo doc --verbose --all --all-features --no-deps
   - cargo build --verbose --all --all-features
   - cargo test --verbose --all --all-features
+services:
+  - redis-server
 notifications:
   email: false

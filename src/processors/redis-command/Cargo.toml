@@ -1,0 +1,27 @@
+[package]
+name = "automaat-processor-redis-command"
+version = "0.1.0"
+authors = ["Jean Mertz <jean@mertz.fm>"]
+license = "MIT/Apache-2.0"
+description = "Redis Command processor for the Automaat automation utility."
+repository = "https://github.com/blendle/automaat"
+keywords = ["automaat", "automation"]
+categories = ["command-line-utilities"]
+readme = "README.md"
+include = ["Cargo.toml", "src/**/*.rs", "README.md", "LICENSE-APACHE", "LICENSE-MIT"]
+edition = "2018"
+
+[badges]
+travis-ci = { repository = "blendle/automaat" }
+
+[dependencies]
+automaat-core = { version = "0.1", path = "../../core" }
+juniper = { version = "0.12", optional = true }
+redis = "0.10"
+serde = { version = "1", features = ["derive"] }
+url = "1"
+url_serde = "0.2"
+
+[dev-dependencies]
+juniper = "0.12"
+version-sync = "0.8"
