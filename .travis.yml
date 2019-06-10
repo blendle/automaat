@@ -19,7 +19,5 @@ script:
   - cargo doc --verbose --all --all-features --no-deps
   - cargo build --verbose --all --all-features
   - cargo test --verbose --all --all-features
-before_cache:
-  - rm rust-toolchain
 notifications:
   email: false
