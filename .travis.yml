@@ -20,3 +20,5 @@ script:
   - cargo test --verbose --all --all-features
 before_cache:
   - rm rust-toolchain
+notifications:
+  email: false
