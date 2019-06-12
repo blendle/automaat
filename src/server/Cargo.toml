@@ -1,0 +1,64 @@
+[package]
+name = "automaat-server"
+version = "0.1.0"
+authors = ["Jean Mertz <jean@mertz.fm>"]
+license = "MIT/Apache-2.0"
+description = "HTTP API for the Automaat automation utility."
+repository = "https://github.com/blendle/automaat"
+keywords = ["automaat", "automation"]
+categories = ["command-line-utilities"]
+readme = "README.md"
+include = ["Cargo.toml", "src/**/*.rs", "migrations/**/*.sql", "README.md", "LICENSE-APACHE", "LICENSE-MIT"]
+edition = "2018"
+
+[badges]
+travis-ci = { repository = "blendle/automaat" }
+
+[dependencies]
+automaat-core = { version = "0.1", path = "../core" }
+chrono = { version = "0.4", features = ["serde"] }
+diesel = { version = "1.4", default-features = false, features = ["postgres", "r2d2", "chrono", "serde_json"] }
+diesel-derive-enum = { version = "0.4", features = ["postgres"] }
+diesel_migrations = "1.4"
+juniper = { version = "0.12", features = ["chrono"] }
+juniper_rocket = "0.3"
+juniper_serde = "0.1"
+paste = "0.1"
+rocket = "0.4"
+rocket_contrib = { version = "0.4", default_features = false, features = ["diesel_postgres_pool", "json"] }
+rocket_cors = "0.5.0"
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde_json = "1.0"
+
+[dependencies.processor-git-clone-v1]
+package = "automaat-processor-git-clone"
+version = "0.1"
+path = "../processors/git-clone"
+features = ["juniper"]
+
+[dependencies.processor-print-output-v1]
+package = "automaat-processor-print-output"
+version = "0.1"
+path = "../processors/print-output"
+features = ["juniper"]
+
+[dependencies.processor-redis-command-v1]
+package = "automaat-processor-redis-command"
+version = "0.1"
+path = "../processors/redis-command"
+features = ["juniper"]
+
+[dependencies.processor-shell-command-v1]
+package = "automaat-processor-shell-command"
+version = "0.1"
+path = "../processors/shell-command"
+features = ["juniper"]
+
+[dependencies.processor-string-regex-v1]
+package = "automaat-processor-string-regex"
+version = "0.1"
+path = "../processors/string-regex"
+features = ["juniper"]
+
+[dev-dependencies]
+version-sync = "0.8"

@@ -6,4 +6,5 @@ members = [
     "src/processors/redis-command",
     "src/processors/shell-command",
     "src/processors/string-regex",
+    "src/server",
 ]
