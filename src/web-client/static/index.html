@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+    <title>Automaat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="css/bulma.css" rel="stylesheet" />
+    <link href="css/fa.css" rel="stylesheet" />
+    <link href="css/fa-solid.css" rel="stylesheet" />
+
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#f73361" />
+    <meta name="apple-mobile-web-app-title" content="Automaat" />
+    <meta name="application-name" content="Automaat" />
+    <meta name="theme-color" content="#f73361" />
+  </head>
+  <body>
+    <nav id="stats" class="level is-hidden-mobile" style="height: 120px;">
+      <div class="level-item has-text-centered">
+        <div>
+          <p class="heading">Pipelines</p>
+          <p id="pipelines-count" class="title">
+            <i class="fas fa-spinner fa-pulse"></i>
+          </p>
+        </div>
+      </div>
+      <div class="level-item has-text-centered">
+        <div>
+          <p class="heading has-text-grey-light">Scheduled</p>
+          <p id="scheduled-count" class="title has-text-grey-light">
+            <i class="fas fa-times"></i>
+          </p>
+        </div>
+      </div>
+      <div class="level-item has-text-centered">
+        <img src="img/logo.svg" alt="" style="height: 100px;" />
+      </div>
+      <div class="level-item has-text-centered">
+        <div>
+          <p class="heading">Running</p>
+          <p id="running-count" class="title">
+            <i class="fas fa-spinner fa-pulse"></i>
+          </p>
+        </div>
+      </div>
+      <div class="level-item has-text-centered">
+        <div>
+          <p class="heading">Failed</p>
+          <p id="failed-count" class="title">
+            <i class="fas fa-spinner fa-pulse"></i>
+          </p>
+        </div>
+      </div>
+    </nav>
+
+    <section id="search" class="section">
+      <div class="container">
+        <div class="columns is-centered">
+          <div class="column is-half">
+            <div class="field">
+              <div class="control is-large is-expanded">
+                <input
+                  id="search-box"
+                  class="input is-large is-fullwidth is-rounded"
+                  type="text"
+                  placeholder="Search Pipelines..."
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <div id="results"></div>
+      </div>
+    </section>
+
+    <div id="pipeline-modal"></div>
+
+    <script type="module">
+      import init from "./app/automaat.js";
+      init("./app/automaat_bg.wasm");
+    </script>
+  </body>
+</html>

@@ -1,0 +1,5 @@
+query FetchTaskStatuses {
+  tasks {
+    status
+  }
+}

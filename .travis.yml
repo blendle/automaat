@@ -21,6 +21,13 @@ script:
   - cargo doc --verbose --all --all-features --no-deps
   - cargo build --verbose --all --all-features
   - cargo test --verbose --all --all-features
+
+  # web-client is not part of the top-level workspace
+  - cd src/web-client
+  - cargo fmt --verbose -- --check
+  - cargo doc --verbose --all --all-features --no-deps
+  - cargo build --verbose --all --all-features
+  - cargo test --verbose --all --all-features
 services:
   - redis-server
 notifications:

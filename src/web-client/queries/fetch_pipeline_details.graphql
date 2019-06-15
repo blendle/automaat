@@ -1,0 +1,52 @@
+query FetchPipelineDetails($id: ID!) {
+  pipeline(id: $id) {
+    id
+    name
+    description
+    variables {
+      id
+      key
+      description
+    }
+    steps {
+      id
+      name
+      description
+      position
+      processor {
+        __typename
+
+        ... on GitClone {
+          url
+          username
+          password
+          path
+        }
+
+        ... on PrintOutput {
+          output
+        }
+
+        ... on ShellCommand {
+          command
+          arguments
+          cwd
+          paths
+        }
+
+        ... on RedisCommand {
+          command
+          arguments
+          url
+        }
+
+        ... on StringRegex {
+          input
+          regex
+          mismatchError
+          replace
+        }
+      }
+    }
+  }
+}

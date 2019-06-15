@@ -1,0 +1,193 @@
+schema {
+  query: QueryRoot
+  mutation: MutationRoot
+}
+
+input CreatePipelineInput {
+  name: String!
+  description: String
+  variables: [CreateVariableInput!]!
+  steps: [CreateStepInput!]!
+}
+
+input CreateStepInput {
+  name: String!
+  description: String
+  processor: ProcessorInput!
+}
+
+input CreateTaskFromPipelineInput {
+  pipelineId: ID!
+  variables: [VariableValueInput!]!
+}
+
+input CreateVariableInput {
+  key: String!
+  description: String
+}
+
+scalar DateTimeUtc
+
+type GitClone {
+  url: Url!
+  username: String
+  password: String
+  path: String
+}
+
+input GitCloneInput {
+  url: Url!
+  username: String
+  password: String
+  path: String
+}
+
+type MutationRoot {
+  createPipeline(pipeline: CreatePipelineInput!): Pipeline!
+  createTaskFromPipeline(task: CreateTaskFromPipelineInput!): Task!
+}
+
+type Pipeline {
+  id: ID!
+  name: String!
+  description: String
+  variables: [Variable!]
+  steps: [Step!]
+}
+
+type PrintOutput {
+  output: String!
+}
+
+input PrintOutputInput {
+  output: String!
+}
+
+union Processor =
+    GitClone
+  | PrintOutput
+  | ShellCommand
+  | RedisCommand
+  | StringRegex
+input ProcessorInput {
+  gitClone: GitCloneInput
+  printOutput: PrintOutputInput
+  shellCommand: ShellCommandInput
+  redisCommand: RedisCommandInput
+  stringRegex: StringRegexInput
+}
+
+type QueryRoot {
+  pipelines(search: SearchPipelineInput): [Pipeline!]!
+  tasks: [Task!]!
+  pipeline(id: ID!): Pipeline
+  task(id: ID!): Task
+}
+
+type RedisCommand {
+  command: String!
+  arguments: [String!]
+  url: Url!
+}
+
+input RedisCommandInput {
+  command: String!
+  arguments: [String!]
+  url: Url!
+}
+
+input SearchPipelineInput {
+  name: String
+  description: String
+}
+
+type ShellCommand {
+  command: String!
+  arguments: [String!]
+  cwd: String
+  paths: [String!]
+}
+
+input ShellCommandInput {
+  command: String!
+  arguments: [String!]
+  cwd: String
+  paths: [String!]
+}
+
+type Step {
+  id: ID!
+  name: String!
+  description: String
+  processor: Processor!
+  position: Int!
+  pipeline: Pipeline
+}
+
+type StringRegex {
+  input: String!
+  regex: String!
+  mismatchError: String
+  replace: String
+}
+
+input StringRegexInput {
+  input: String!
+  regex: String!
+  mismatchError: String
+  replace: String
+}
+
+type Task {
+  id: ID!
+  name: String!
+  description: String
+  status: TaskStatus!
+  steps: [TaskStep!]
+  pipeline: Pipeline
+}
+
+enum TaskStatus {
+  SCHEDULED
+  PENDING
+  RUNNING
+  FAILED
+  CANCELLED
+  OK
+}
+
+type TaskStep {
+  id: ID!
+  name: String!
+  description: String
+  processor: Processor
+  position: Int!
+  startedAt: DateTimeUtc
+  finishedAt: DateTimeUtc
+  status: TaskStepStatus!
+  output: String
+  task: Task
+}
+
+enum TaskStepStatus {
+  INITIALIZED
+  PENDING
+  RUNNING
+  FAILED
+  CANCELLED
+  OK
+}
+
+scalar Url
+
+type Variable {
+  id: ID!
+  key: String!
+  description: String
+  pipeline: Pipeline
+}
+
+input VariableValueInput {
+  key: String!
+  value: String!
+}

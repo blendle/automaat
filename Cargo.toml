@@ -8,3 +8,9 @@ members = [
     "src/processors/string-regex",
     "src/server",
 ]
+
+# web-client is excluded from the workspace, to allow that crate to use the
+# nightly compiler for improved WebAssembly support, and to use custom release
+# profiles for agressive code size optimisations, compared to the regular
+# performance optimisations used for the server-side components.
+exclude = ["src/web-client"]

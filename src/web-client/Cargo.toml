@@ -1,0 +1,82 @@
+[package]
+name = "automaat-web-client"
+version = "0.1.0"
+authors = ["Jean Mertz <jean@mertz.fm>"]
+license = "MIT/Apache-2.0"
+description = "Web Client for the Automaat automation utility."
+repository = "https://github.com/blendle/automaat"
+keywords = ["automaat", "automation"]
+categories = ["command-line-utilities"]
+readme = "README.md"
+edition = "2018"
+include = [
+  "/Cargo.toml",
+  "/LICENSE-APACHE",
+  "/LICENSE-MIT",
+  "/README.md",
+  "/queries/**/*.graphql",
+  "/schema.graphql",
+  "/src/**/*.rs",
+  "/static/**/*",
+]
+
+[badges]
+travis-ci = { repository = "blendle/automaat" }
+
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+default = ["console_error_panic_hook"]
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["serde"] }
+comrak = { version = "0.6", default-features = false }
+console_error_panic_hook = { version = "0.1", optional = true }
+futures = "0.1"
+graphql_client = { version = "0.8", features = ["web"] }
+serde = { version = "1", features = ["derive"], default-features = false }
+serde_json = "1"
+url = "1"
+url_serde = "0.2"
+wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
+wasm-bindgen-futures = "0.3"
+wasm-timer = "0.1"
+wee_alloc = { version = "0.4", features = ["size_classes", "nightly"] }
+
+# waiting for: https://git.io/fjzuv
+# also needed: https://git.io/fj2ZC
+[dependencies.typed-html]
+git = "https://github.com/JeanMertz/typed-html.git"
+rev = "90fcc43cf66aecc54ddfdad54a10cd4196552343"
+
+[dependencies.web-sys]
+version = "0.3"
+features = [
+  "Document",
+  "DomTokenList",
+  "Element",
+  "Event",
+  "HtmlCollection",
+  "HtmlElement",
+  "HtmlInputElement",
+  "KeyboardEvent",
+  "Node",
+  "NodeList",
+  "Window",
+  "console",
+]
+
+[dev-dependencies]
+version-sync = "0.8"
+
+[profile.release]
+# Reduce filesize using LLVM's Link Time Optimization.
+#
+# https://llvm.org/docs/LinkTimeOptimization.html
+lto = true
+
+# Enable most aggressive code size optimizations.
+#
+# https://rustwasm.github.io/book/reference/code-size.html
+opt-level = "s"
