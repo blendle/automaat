@@ -69,14 +69,3 @@ features = [
 
 [dev-dependencies]
 version-sync = "0.8"
-
-[profile.release]
-# Reduce filesize using LLVM's Link Time Optimization.
-#
-# https://llvm.org/docs/LinkTimeOptimization.html
-lto = true
-
-# Enable most aggressive code size optimizations.
-#
-# https://rustwasm.github.io/book/reference/code-size.html
-opt-level = "s"

@@ -1,3 +1,5 @@
+cargo-features = ["profile-overrides"]
+
 [workspace]
 members = [
     "src/core",
@@ -7,10 +9,17 @@ members = [
     "src/processors/shell-command",
     "src/processors/string-regex",
     "src/server",
+    "src/web-client",
 ]
 
-# web-client is excluded from the workspace, to allow that crate to use the
-# nightly compiler for improved WebAssembly support, and to use custom release
-# profiles for agressive code size optimisations, compared to the regular
-# performance optimisations used for the server-side components.
-exclude = ["src/web-client"]
+[profile.release]
+# Reduce filesize using LLVM's Link Time Optimization.
+#
+# https://llvm.org/docs/LinkTimeOptimization.html
+lto = true
+
+[profile.release.overrides.automaat-web-client]
+# Enable most aggressive code size optimizations.
+#
+# https://rustwasm.github.io/book/reference/code-size.html
+opt-level = "z"

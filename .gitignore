@@ -1,5 +1,3 @@
-**/*.rs.bk
-.trigger
-/Cargo.lock
+/src/web-client/static/app
 /target
 /tmp
