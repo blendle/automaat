@@ -5,7 +5,6 @@ authors = ["Jean Mertz <jean@mertz.fm>"]
 license = "MIT/Apache-2.0"
 description = "Automation task scheduler"
 repository = "https://github.com/blendle/automaat"
-documentation = "https://docs.rs/automaat-core"
 keywords = ["automaat", "automation"]
 categories = ["command-line-utilities"]
 readme = "README.md"
@@ -18,3 +17,7 @@ travis-ci = { repository = "blendle/automaat" }
 [dependencies]
 serde = "1"
 tempfile = "3"
+
+[dev-dependencies]
+version-sync = "0.8"
+serde = { version = "1", features = ["derive"] }

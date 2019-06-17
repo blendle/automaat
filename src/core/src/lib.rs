@@ -71,6 +71,7 @@
 )]
 #![warn(variant_size_differences)]
 #![allow(clippy::multiple_crate_versions, missing_doc_code_examples)]
+#![doc(html_root_url = "https://docs.rs/automaat-core/0.1.0")]
 
 use serde::{Deserialize, Serialize};
 use std::{error, fmt, io, path};
@@ -196,5 +197,48 @@ impl error::Error for ContextError {
 impl From<io::Error> for ContextError {
     fn from(err: std::io::Error) -> Self {
         ContextError::Io(err)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde::{Deserialize, Serialize};
+
+    #[test]
+    fn test_context_workspace_path() {
+        let context = Context::new().unwrap();
+
+        assert!(context.workspace_path().exists())
+    }
+
+    #[test]
+    fn test_processor_validate_default() {
+        #[derive(Clone, Debug, Deserialize, Serialize)]
+        struct Stub;
+
+        impl<'a> Processor<'a> for Stub {
+            const NAME: &'static str = "Stub Processor";
+
+            type Output = String;
+            type Error = io::Error;
+
+            fn run(&self, _: &Context) -> Result<Option<Self::Output>, Self::Error> {
+                Ok(None)
+            }
+        }
+
+        let processor = Stub;
+        processor.validate().unwrap();
+    }
+
+    #[test]
+    fn test_readme_deps() {
+        version_sync::assert_markdown_deps_updated!("README.md");
+    }
+
+    #[test]
+    fn test_html_root_url() {
+        version_sync::assert_html_root_url_updated!("src/lib.rs");
     }
 }
