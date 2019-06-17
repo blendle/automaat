@@ -90,9 +90,8 @@ pub struct PrintOutput {
 ///
 /// [io]: https://graphql.github.io/graphql-spec/June2018/#sec-Input-Objects
 #[cfg(feature = "juniper")]
-#[cfg_attr(feature = "juniper", derive(juniper::GraphQLInputObject))]
 #[graphql(name = "PrintOutputInput")]
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, juniper::GraphQLInputObject)]
 pub struct Input {
     output: String,
 }
@@ -113,9 +112,6 @@ impl<'a> Processor<'a> for PrintOutput {
     type Output = String;
 
     /// Print the output as defined by the processor configuration.
-    ///
-    /// The repository will be cloned in the [`Context`]
-    /// workspace, optionally in a child `path`.
     ///
     /// # Output
     ///
@@ -173,7 +169,7 @@ mod tests {
         use super::*;
 
         #[test]
-        fn empty_output() {
+        fn test_empty_output() {
             let processor = PrintOutput {
                 output: "".to_owned(),
             };
@@ -185,7 +181,7 @@ mod tests {
         }
 
         #[test]
-        fn string_output() {
+        fn test_string_output() {
             let processor = PrintOutput {
                 output: "hello".to_owned(),
             };
@@ -201,7 +197,7 @@ mod tests {
         use super::*;
 
         #[test]
-        fn empty_output() {
+        fn test_empty_output() {
             let processor = PrintOutput {
                 output: "".to_owned(),
             };
@@ -210,7 +206,7 @@ mod tests {
         }
 
         #[test]
-        fn string_output() {
+        fn test_string_output() {
             let processor = PrintOutput {
                 output: "hello".to_owned(),
             };

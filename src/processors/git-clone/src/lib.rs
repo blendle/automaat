@@ -6,8 +6,8 @@
 //! Plaintext username/password authentication is supported for private
 //! repositories.
 //!
-//! [`Context`]: https://docs.rs/automaat-core/0.1/automaat_core/struct.Context.html
 //! [Automaat]: https://docs.rs/automaat-core
+//! [`Context`]: automaat_core::Context
 //!
 //! # Examples
 //!
@@ -99,16 +99,17 @@ pub struct GitClone {
     pub path: Option<String>,
 }
 
-/// The GraphQL [Input Object] used to initialize the processor via an API.
+/// The GraphQL [Input Object][io] used to initialize the processor via an API.
 ///
 /// [`GitClone`] implements `From<Input>`, so you can directly initialize the
 /// processor using this type.
 ///
 /// _requires the `juniper` package feature to be enabled_
+///
+/// [io]: https://graphql.github.io/graphql-spec/June2018/#sec-Input-Objects
 #[cfg(feature = "juniper")]
-#[cfg_attr(feature = "juniper", derive(juniper::GraphQLInputObject))]
-#[cfg_attr(feature = "juniper", graphql(name = "GitCloneInput"))]
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[graphql(name = "GitCloneInput")]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, juniper::GraphQLInputObject)]
 pub struct Input {
     #[serde(with = "url_serde")]
     url: Url,
@@ -253,7 +254,7 @@ mod tests {
         use super::*;
 
         #[test]
-        fn no_path() {
+        fn test_no_path() {
             let mut processor = processor_stub();
             processor.path = None;
 
@@ -261,7 +262,7 @@ mod tests {
         }
 
         #[test]
-        fn relative_path() {
+        fn test_relative_path() {
             let mut processor = processor_stub();
             processor.path = Some("hello/world".to_owned());
 
@@ -270,7 +271,7 @@ mod tests {
 
         #[test]
         #[should_panic]
-        fn prefix_path() {
+        fn test_prefix_path() {
             let mut processor = processor_stub();
             processor.path = Some("../parent".to_owned());
 
@@ -279,7 +280,7 @@ mod tests {
 
         #[test]
         #[should_panic]
-        fn absolute_path() {
+        fn test_absolute_path() {
             let mut processor = processor_stub();
             processor.path = Some("/etc".to_owned());
 
