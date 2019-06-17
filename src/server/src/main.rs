@@ -37,11 +37,11 @@
 #![doc(html_root_url = "https://docs.rs/automaat-server/0.1.0")]
 #![feature(proc_macro_hygiene, decl_macro)]
 
-mod graphql;
-mod handlers;
-mod processor;
-mod resources;
-mod schema;
+// This is needed for statically linking.
+//
+// see: https://git.io/fj2CG
+#[allow(unused_extern_crates)]
+extern crate openssl;
 
 #[macro_use]
 extern crate rocket;
@@ -58,12 +58,19 @@ extern crate diesel_migrations;
 #[macro_use]
 extern crate diesel_derive_enum;
 
+mod graphql;
+mod handlers;
+mod processor;
+mod resources;
+mod schema;
+
 use crate::graphql::{MutationRoot, QueryRoot, Schema};
 use diesel_migrations::embed_migrations;
 use processor::{Input as ProcessorInput, Processor};
 use rocket::{fairing::AdHoc, Rocket};
 use rocket_contrib::databases::diesel::PgConnection;
-use std::thread;
+use rocket_contrib::serve::StaticFiles;
+use std::{env, thread};
 
 /// The main database connection pool shared across all threads.
 #[database("db")]
@@ -86,18 +93,21 @@ fn server() -> Rocket {
         .to_cors()
         .expect("invalid CORS");
 
+    let root = env::var("SERVER_ROOT").unwrap_or_else(|_| "/public".to_owned());
+
     rocket::ignite()
         .attach(Database::fairing())
         .manage(Schema::new(QueryRoot, MutationRoot))
         .attach(AdHoc::on_attach("Database Migrations", run_db_migrations))
         .attach(AdHoc::on_attach("Starting Task Runner...", run_task_runner))
         .attach(cors)
+        .mount("/", StaticFiles::from(root))
+        .mount("/health", routes![handlers::health])
         .mount(
-            "/",
+            "/graphql",
             routes![
                 handlers::graphiql,
                 handlers::playground,
-                handlers::health,
                 handlers::query,
                 handlers::mutate
             ],

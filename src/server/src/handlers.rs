@@ -25,17 +25,17 @@ pub(crate) struct Health {
     release_id: &'static str,
 }
 
-#[get("/graphql/graphiql")]
+#[get("/graphiql")]
 pub(super) fn graphiql() -> Html<String> {
     graphiql_source("/graphql")
 }
 
-#[get("/graphql/playground")]
+#[get("/playground")]
 pub(super) fn playground() -> Html<String> {
     playground_source("/graphql")
 }
 
-#[get("/graphql?<request>")]
+#[get("/?<request>")]
 #[allow(clippy::needless_pass_by_value)]
 pub(super) fn query(
     db: Database,
@@ -45,7 +45,7 @@ pub(super) fn query(
     request.execute(&schema, &db)
 }
 
-#[post("/graphql", data = "<request>")]
+#[post("/", data = "<request>")]
 #[allow(clippy::needless_pass_by_value)]
 pub(super) fn mutate(
     db: Database,
@@ -55,7 +55,7 @@ pub(super) fn mutate(
     request.execute(&schema, &db)
 }
 
-#[get("/health")]
+#[get("/")]
 pub(super) const fn health() -> Json<Health> {
     let health = Health {
         status: Status::Pass,
