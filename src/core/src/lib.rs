@@ -81,7 +81,7 @@ use tempfile::{tempdir, TempDir};
 ///
 /// Implementing the `Processor` trait makes it possible to use that processor
 /// in the `automaat-server` application.
-pub trait Processor<'de>: Clone + fmt::Debug + Serialize + Deserialize<'de> {
+pub trait Processor<'de>: fmt::Debug + Serialize + Deserialize<'de> {
     /// The human-readable name of the processor, used to visually identify this
     /// processor amongst others.
     const NAME: &'static str;
@@ -214,7 +214,7 @@ mod tests {
 
     #[test]
     fn test_processor_validate_default() {
-        #[derive(Clone, Debug, Deserialize, Serialize)]
+        #[derive(Debug, Deserialize, Serialize)]
         struct Stub;
 
         impl<'a> Processor<'a> for Stub {
