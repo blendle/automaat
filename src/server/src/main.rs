@@ -37,18 +37,6 @@
 #![doc(html_root_url = "https://docs.rs/automaat-server/0.1.0")]
 #![feature(proc_macro_hygiene, decl_macro)]
 
-// This is needed for statically linking.
-//
-// see: https://git.io/fj2CG
-#[allow(unused_extern_crates)]
-extern crate openssl;
-
-#[macro_use]
-extern crate rocket;
-
-#[macro_use]
-extern crate rocket_contrib;
-
 #[macro_use]
 extern crate diesel;
 
@@ -65,73 +53,69 @@ mod resources;
 mod schema;
 
 use crate::graphql::{MutationRoot, QueryRoot, Schema};
+use crate::processor::{Input as ProcessorInput, Processor};
+use actix_files::Files;
+use actix_web::{
+    middleware::{Compress, DefaultHeaders},
+    web, App, HttpServer,
+};
+use diesel::pg::PgConnection;
+use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
 use diesel_migrations::embed_migrations;
-use processor::{Input as ProcessorInput, Processor};
-use rocket::{fairing::AdHoc, Rocket};
-use rocket_contrib::databases::diesel::PgConnection;
-use rocket_contrib::serve::StaticFiles;
-use std::{env, thread};
+use std::{env, io, ops::Deref, sync::Arc, thread};
 
 /// The main database connection pool shared across all threads.
-#[database("db")]
-pub(crate) struct Database(PgConnection);
+pub(crate) struct Database(PooledConnection<ConnectionManager<PgConnection>>);
 
-fn main() {
-    let _ = server().launch();
+impl Deref for Database {
+    type Target = PgConnection;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
-/// Creates a Rocket server instance including all the CORS configuration, and
-/// the required "attachments":
-///
-/// * Running the database migrations before the server starts.
-/// * Running the "task runner" in a separate thread.
-///
-/// This does not boot the server, so that this function can be used in
-/// integration test scenarios that boot an internal server when a test runs.
-fn server() -> Rocket {
-    let cors = rocket_cors::CorsOptions::default()
-        .to_cors()
-        .expect("invalid CORS");
+pub(crate) type DatabasePool = Pool<ConnectionManager<PgConnection>>;
+pub(crate) type GraphQLSchema = Arc<Schema>;
 
-    let root = env::var("SERVER_ROOT").unwrap_or_else(|_| "/public".to_owned());
+fn main() -> io::Result<()> {
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL environment variable");
+    let pool = Pool::new(ConnectionManager::new(database_url)).expect("valid database pool");
 
-    rocket::ignite()
-        .attach(Database::fairing())
-        .manage(Schema::new(QueryRoot, MutationRoot))
-        .attach(AdHoc::on_attach("Database Migrations", run_db_migrations))
-        .attach(AdHoc::on_attach("Starting Task Runner...", run_task_runner))
-        .attach(cors)
-        .mount("/", StaticFiles::from(root))
-        .mount("/health", routes![handlers::health])
-        .mount(
-            "/graphql",
-            routes![
-                handlers::graphiql,
-                handlers::playground,
-                handlers::query,
-                handlers::mutate
-            ],
-        )
+    let conn = Database(pool.get().expect("valid database connection"));
+    embedded_migrations::run(&*conn).expect("successful database migration");
+    run_task_runner(conn);
+
+    server(pool)
+}
+
+fn server(pool: DatabasePool) -> io::Result<()> {
+    let bind = env::var("SERVER_BIND").unwrap_or_else(|_| "0.0.0.0:8000".to_owned());
+    let schema = Arc::new(Schema::new(QueryRoot, MutationRoot));
+
+    HttpServer::new(move || {
+        let root = env::var("SERVER_ROOT").unwrap_or_else(|_| "/public".to_owned());
+
+        App::new()
+            .wrap(Compress::default())
+            .wrap(DefaultHeaders::new().header("cache-control", "max-age=900"))
+            .data(pool.clone())
+            .data(schema.clone())
+            .route("/graphql/playground", web::get().to(handlers::playground))
+            .route("/graphql/graphiql", web::get().to(handlers::graphiql))
+            .route("/graphql", web::get().to_async(handlers::graphql))
+            .route("/graphql", web::post().to_async(handlers::graphql))
+            .route("/health", web::get().to(handlers::health))
+            .service(Files::new("/", root).index_file("index.html"))
+    })
+    .bind(bind)
+    .unwrap()
+    .run()
 }
 
 // Embeds all migrations inside the binary, so that they can be run when needed
 // on startup.
 embed_migrations!();
-
-/// Takes a connection from the database connection pool, and runs any pending
-/// migrations before starting the web server.
-///
-/// If any of the migrations fail to run, the server is not started.
-fn run_db_migrations(rocket: Rocket) -> Result<Rocket, Rocket> {
-    let conn = Database::get_one(&rocket).expect("database connection");
-    match embedded_migrations::run(&*conn) {
-        Ok(_) => Ok(rocket),
-        Err(e) => {
-            eprintln!("{}", e);
-            Err(rocket)
-        }
-    }
-}
 
 // Takes a permanent database connection from the connection pool and starts a
 // new thread to continuously poll the database for new tasks that need to run.
@@ -142,11 +126,8 @@ fn run_db_migrations(rocket: Rocket) -> Result<Rocket, Rocket> {
 //
 // TODO: split this off into its own crate. Possibly look into using Faktory to
 // schedule jobs.
-fn run_task_runner(rocket: Rocket) -> Result<Rocket, Rocket> {
-    let conn = Database::get_one(&rocket).expect("database connection");
+fn run_task_runner(conn: Database) {
     let _ = thread::spawn(move || crate::resources::poll_tasks(&conn));
-
-    Ok(rocket)
 }
 
 #[cfg(test)]

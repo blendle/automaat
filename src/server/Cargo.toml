@@ -15,18 +15,17 @@ edition = "2018"
 travis-ci = { repository = "blendle/automaat" }
 
 [dependencies]
+actix-files = "0.1.2"
+actix-web = { version = "1.0.2", default-features = false, features = ["brotli", "flate2-zlib"] }
 automaat-core = { version = "0.1", path = "../core" }
 chrono = { version = "0.4", features = ["serde"] }
 diesel = { version = "1.4", default-features = false, features = ["postgres", "r2d2", "chrono", "serde_json"] }
 diesel-derive-enum = { version = "0.4", features = ["postgres"] }
 diesel_migrations = "1.4"
+futures = "0.1"
 juniper = { version = "0.12", features = ["chrono"] }
-juniper_rocket = "0.3"
 juniper_serde = "0.1"
 paste = "0.1"
-rocket = "0.4"
-rocket_contrib = { version = "0.4", default_features = false, features = ["diesel_postgres_pool", "json", "serve"] }
-rocket_cors = "0.5.0"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
 

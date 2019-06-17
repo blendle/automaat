@@ -1,11 +1,8 @@
-#![allow(clippy::single_match_else)]
-
-use crate::graphql::Schema;
-use crate::Database;
-use juniper_rocket::{graphiql_source, playground_source, GraphQLRequest, GraphQLResponse};
-use rocket::response::content::Html;
-use rocket::State;
-use rocket_contrib::json::Json;
+use crate::{Database, DatabasePool, GraphQLSchema};
+use actix_web::web::{block, Data, Json};
+use actix_web::{Error, HttpResponse};
+use futures::future::Future;
+use juniper::http::{graphiql, playground, GraphQLRequest};
 use serde::{Deserialize, Serialize};
 
 /// See: <https://tools.ietf.org/html/draft-inadarei-api-health-check-03>
@@ -25,43 +22,47 @@ pub(crate) struct Health {
     release_id: &'static str,
 }
 
-#[get("/graphiql")]
-pub(super) fn graphiql() -> Html<String> {
-    graphiql_source("/graphql")
+pub(super) fn graphiql() -> HttpResponse {
+    let html = graphiql::graphiql_source("/graphql");
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(html)
 }
 
-#[get("/playground")]
-pub(super) fn playground() -> Html<String> {
-    playground_source("/graphql")
+pub(super) fn playground() -> HttpResponse {
+    let html = playground::playground_source("/graphql");
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(html)
 }
 
-#[get("/?<request>")]
-#[allow(clippy::needless_pass_by_value)]
-pub(super) fn query(
-    db: Database,
-    request: GraphQLRequest,
-    schema: State<'_, Schema>,
-) -> GraphQLResponse {
-    request.execute(&schema, &db)
+pub(super) fn graphql(
+    pool: Data<DatabasePool>,
+    request: Json<GraphQLRequest>,
+    schema: Data<GraphQLSchema>,
+) -> impl Future<Item = HttpResponse, Error = Error> {
+    block(move || {
+        let db = Database(pool.get().expect("valid database collection"));
+        let response = request.execute(&schema, &db);
+        serde_json::to_string(&response)
+    })
+    .map_err(Into::into)
+    .and_then(|response| {
+        Ok(HttpResponse::Ok()
+            .content_type("application/json")
+            .header("Cache-Control", "no-cache")
+            .body(response))
+    })
 }
 
-#[post("/", data = "<request>")]
-#[allow(clippy::needless_pass_by_value)]
-pub(super) fn mutate(
-    db: Database,
-    request: GraphQLRequest,
-    schema: State<'_, Schema>,
-) -> GraphQLResponse {
-    request.execute(&schema, &db)
-}
-
-#[get("/")]
-pub(super) const fn health() -> Json<Health> {
+pub(super) fn health() -> HttpResponse {
     let health = Health {
         status: Status::Pass,
         version: "TODO",
         release_id: "TODO",
     };
 
-    Json(health)
+    HttpResponse::Ok()
+        .header("Cache-Control", "no-cache")
+        .json(health)
 }
