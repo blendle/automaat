@@ -210,25 +210,20 @@ impl<'a> Processor<'a> for ShellCommand {
             self.cwd.as_ref().unwrap_or(&"".to_owned()).as_str(),
         ));
 
-        // Optionally add custom paths to the PATH environment variable.
-        if let Some(new_paths) = &self.paths {
-            let paths: Vec<_> = match env::var_os("PATH") {
-                Some(current_path) => env::split_paths(&current_path)
-                    .chain(new_paths.iter().map(path::PathBuf::from))
-                    .collect(),
-                None => new_paths
-                    .iter()
-                    .map(path::Path::new)
-                    .map(|p| workspace.join(p))
-                    .collect(),
-            };
+        let new_paths = match self.paths {
+            None => vec![],
+            Some(ref paths) => paths.iter().map(|p| workspace.join(p)).collect(),
+        };
 
-            let path = env::join_paths(paths)?;
-            env::set_var("PATH", &path);
+        // Optionally add custom paths to the PATH environment variable.
+        let path = match env::var_os("PATH") {
+            Some(ref p) => env::split_paths(p).chain(new_paths.into_iter()).collect(),
+            None => new_paths,
         };
 
         let output = process::Command::new(&self.command)
             .current_dir(cwd)
+            .env("PATH", env::join_paths(path)?)
             .args(arguments)
             .output()?;
 
@@ -403,6 +398,25 @@ mod tests {
                 error.to_string(),
                 "IO error: No such file or directory (os error 2)".to_owned()
             )
+        }
+
+        #[test]
+        fn test_appending_paths() {
+            let mut processor = processor_stub();
+            processor.command = "printenv".to_owned();
+            processor.arguments = Some(vec!["PATH".to_owned()]);
+            processor.paths = Some(vec!["hello/world".to_owned()]);
+
+            let context = Context::new().unwrap();
+            let output = processor.run(&context).unwrap().expect("Some");
+
+            assert!(output.contains(&format!(
+                ":{}",
+                context
+                    .workspace_path()
+                    .join("hello/world")
+                    .to_string_lossy()
+            )));
         }
     }
 
