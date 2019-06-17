@@ -225,7 +225,7 @@ impl<'a> Processor<'a> for StringRegex {
                 None => Ok(None),
                 Some(replace) => {
                     let out = re
-                        .replace(self.input.as_str(), replace.as_str())
+                        .replace_all(self.input.as_str(), replace.as_str())
                         .into_owned();
 
                     if out.is_empty() {
@@ -372,6 +372,19 @@ mod tests {
             let output = processor.run(&context).unwrap().expect("Some");
 
             assert_eq!(output, "hi world!".to_owned())
+        }
+
+        #[test]
+        fn test_replace_multiline() {
+            let mut processor = processor_stub();
+            processor.input = "hello world\nhello universe".to_owned();
+            processor.regex = r"(?m)^hello (\w+)$".to_owned();
+            processor.replace = Some("hi $1!".to_owned());
+
+            let context = Context::new().unwrap();
+            let output = processor.run(&context).unwrap().expect("Some");
+
+            assert_eq!(output, "hi world!\nhi universe!".to_owned())
         }
     }
 
