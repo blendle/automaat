@@ -8,19 +8,19 @@
 //!
 //! Automaat consists of several core crates:
 //!
-//! * [`automaat-core`][c] (this one) – Provides the basic building blocks for
-//!   the functionality of the other crates.
+//! * `automaat-core` (this one) – Provides the basic building blocks for the
+//!   functionality of the other crates.
 //! * [`automaat-server`][s] – A server application, with an API to run
 //!   processors, and persistent storage.
-//! * [`automaat-web-client`][w] – A WebAssembly-based application to interact
-//!   with the server, and run processors.
+//! * [`automaat-web-client`][w] – A [WebAssembly][wasm]-based application to
+//!   interact with the server, and run processors.
 //!
-//! [c]: https://docs.rs/automaat-core
 //! [s]: https://docs.rs/automaat-server
 //! [w]: https://docs.rs/automaat-web-client
+//! [wasm]: https://webassembly.org
 //!
-//! There are also serveral existing processor implementations, each in their
-//! own crate:
+//! There are also several existing processor implementations, each in their own
+//! crate:
 //!
 //! * [`automaat-processor-git-clone`][pg] – Clone any Git repository to the
 //!   processor workspace.
@@ -41,24 +41,36 @@
 //!
 //! # Core
 //!
-//! This crate, `automaat-core`, provides the main [`Processor`] trait to create
-//! new processors, and run them.
-//!
-//! It also provides access to the [`Context`] object, to share state between
-//! multiple processors in a single run.
-//!
-//! If you want to write your own processor, be sure to check out the
-//! documentation of the [`Processor`] trait.
-
+//! This crate provides the main [`Processor`] trait to create new processors,
+//! and run them. It also provides access to the [`Context`] object, to share
+//! state between multiple processors in a single run. If you want to write your
+//! own processor, be sure to check out the documentation of the `Processor`
+//! trait.
 #![deny(
     clippy::all,
     clippy::cargo,
     clippy::nursery,
     clippy::pedantic,
+    deprecated_in_future,
+    future_incompatible,
+    missing_docs,
+    nonstandard_style,
     rust_2018_idioms,
-    warnings
+    rustdoc,
+    warnings,
+    unused_results,
+    unused_qualifications,
+    unused_lifetimes,
+    unused_import_braces,
+    unsafe_code,
+    unreachable_pub,
+    trivial_casts,
+    trivial_numeric_casts,
+    missing_debug_implementations,
+    missing_copy_implementations
 )]
-#![allow(clippy::multiple_crate_versions)]
+#![warn(variant_size_differences)]
+#![allow(clippy::multiple_crate_versions, missing_doc_code_examples)]
 
 use serde::{Deserialize, Serialize};
 use std::{error, fmt, io, path};
@@ -69,8 +81,8 @@ use tempfile::{tempdir, TempDir};
 /// Implementing the `Processor` trait makes it possible to use that processor
 /// in the `automaat-server` application.
 pub trait Processor<'de>: Clone + fmt::Debug + Serialize + Deserialize<'de> {
-    /// The human-formatted name of the processor, used to visually identify
-    /// this processor amongst others.
+    /// The human-readable name of the processor, used to visually identify this
+    /// processor amongst others.
     const NAME: &'static str;
 
     /// If a processor fails its intended purpose, the returned error is turned
@@ -78,7 +90,7 @@ pub trait Processor<'de>: Clone + fmt::Debug + Serialize + Deserialize<'de> {
     type Error: error::Error;
 
     /// The processor can return any (successful) output it wants, as long as
-    /// that type implements the [`std::fmt::Display`] trait.
+    /// that type implements the [`fmt::Display`] trait.
     ///
     /// In the `automaat-server` application, the output is turned into a
     /// string, and is processed as markdown.
@@ -173,14 +185,7 @@ impl fmt::Display for ContextError {
 }
 
 impl error::Error for ContextError {
-    fn description(&self) -> &str {
-        match *self {
-            ContextError::Io(ref err) => err.description(),
-            ContextError::__Unknown => unreachable!(),
-        }
-    }
-
-    fn cause(&self) -> Option<&dyn error::Error> {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match *self {
             ContextError::Io(ref err) => Some(err),
             ContextError::__Unknown => unreachable!(),
