@@ -37,6 +37,12 @@
 #![doc(html_root_url = "https://docs.rs/automaat-server/0.1.0")]
 #![feature(proc_macro_hygiene, decl_macro)]
 
+// This is needed for statically linking.
+//
+// see: https://git.io/fj2CG
+#[allow(unused_extern_crates)]
+extern crate openssl;
+
 #[macro_use]
 extern crate diesel;
 
