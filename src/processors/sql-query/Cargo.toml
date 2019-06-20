@@ -1,0 +1,36 @@
+[package]
+name = "automaat-processor-sql-query"
+version = "0.1.0"
+authors = ["Jean Mertz <jean@mertz.fm>"]
+license = "MIT/Apache-2.0"
+description = "SQL Query processor for the Automaat automation utility."
+repository = "https://github.com/blendle/automaat"
+keywords = ["automaat", "automation"]
+categories = ["command-line-utilities"]
+readme = "README.md"
+include = [
+  "Cargo.toml",
+  "src/**/*.rs",
+  "README.md",
+  "LICENSE-APACHE",
+  "LICENSE-MIT"
+]
+edition = "2018"
+
+[badges]
+travis-ci = { repository = "blendle/automaat" }
+
+[dependencies]
+automaat-core = { version = "0.1", path = "../../core" }
+juniper = { version = "0.12", optional = true }
+postgres = { version = "0.16.0-rc.1", features = ["with-serde_json-1"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1.0"
+sqlparser = "0.3"
+url = "1"
+url_serde = "0.2"
+
+[dev-dependencies]
+juniper = "0.12"
+rand = "0.6"
+version-sync = "0.8"

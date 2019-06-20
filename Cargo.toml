@@ -7,6 +7,7 @@ members = [
     "src/processors/print-output",
     "src/processors/redis-command",
     "src/processors/shell-command",
+    "src/processors/sql-query",
     "src/processors/string-regex",
     "src/server",
     "src/web-client",
