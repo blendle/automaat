@@ -330,6 +330,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "automaat-processor-json-edit"
+version = "0.1.0"
+dependencies = [
+ "automaat-core 0.1.0",
+ "json-query 0.3.0 (git+https://github.com/JeanMertz/json-query?branch=newline)",
+ "juniper 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.92 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
+ "version-sync 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "automaat-processor-print-output"
 version = "0.1.0"
 dependencies = [
@@ -436,6 +448,14 @@ dependencies = [
  "wasm-timer 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "web-sys 0.3.23 (registry+https://github.com/rust-lang/crates.io-index)",
  "wee_alloc 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "autotools"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "cc 1.0.37 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1256,11 +1276,36 @@ version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "jq-src"
+version = "0.4.0"
+source = "git+https://github.com/onelson/jq-src#c37f1a922774706ab93b6981f759766fffc0adc1"
+dependencies = [
+ "autotools 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "jq-sys"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "jq-src 0.4.0 (git+https://github.com/onelson/jq-src)",
+ "pkg-config 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "js-sys"
 version = "0.3.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "wasm-bindgen 0.2.46 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "json-query"
+version = "0.3.0"
+source = "git+https://github.com/JeanMertz/json-query?branch=newline#a6437265f933accebbbefdf269bfbf9d57c8ff00"
+dependencies = [
+ "jq-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -3206,6 +3251,7 @@ dependencies = [
 "checksum ascii-canvas 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ff8eb72df928aafb99fe5d37b383f2fe25bd2a765e3e5f7c365916b6f2463a29"
 "checksum atty 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)" = "9a7d5b8723950951411ee34d271d99dddcc2035a16ab25310ea2c8cfd4369652"
 "checksum autocfg 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "0e49efa51329a5fd37e7c79db4621af617cd4e3e5bc224939808d076077077bf"
+"checksum autotools 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "774fd1b2d459a939302a0bad631a3de176b8bd5f87cbfc28ceb1f6c18d731094"
 "checksum backtrace 0.3.30 (registry+https://github.com/rust-lang/crates.io-index)" = "ada4c783bb7e7443c14e0480f429ae2cc99da95065aeab7ee1b81ada0419404f"
 "checksum backtrace-sys 0.1.28 (registry+https://github.com/rust-lang/crates.io-index)" = "797c830ac25ccc92a7f8a7b9862bde440715531514594a6154e3d4a54dd769b6"
 "checksum base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)" = "0b25d992356d2eb0ed82172f5248873db5560c4721f564b13cb5193bda5e668e"
@@ -3302,7 +3348,10 @@ dependencies = [
 "checksum ipconfig 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "aa79fa216fbe60834a9c0737d7fcd30425b32d1c58854663e24d4c4b328ed83f"
 "checksum itertools 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5b8467d9c1cebe26feb08c640139247fac215782d35371ade9a2136ed6085358"
 "checksum itoa 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)" = "501266b7edd0174f8530248f87f99c88fbe60ca4ef3dd486835b8d8d53136f7f"
+"checksum jq-src 0.4.0 (git+https://github.com/onelson/jq-src)" = "<none>"
+"checksum jq-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "81b65b7e54bd2fffc8cb20cbcf19f40d3158dab5cf5b5adb1f65f9b35eba4c48"
 "checksum js-sys 0.3.23 (registry+https://github.com/rust-lang/crates.io-index)" = "9455b1e578bd8c833c4e2ef7eaaf0522be3c1f66a51c69cd1a83a57facdfac43"
+"checksum json-query 0.3.0 (git+https://github.com/JeanMertz/json-query?branch=newline)" = "<none>"
 "checksum juniper 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3365cb2712ac210a62fdb31e608e43da1a60d9c72affd49f064f4e744ad1a26b"
 "checksum juniper_codegen 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1f58987aefa7edd8033a558e9019347ad4f016b97caa58290abf2728ce773859"
 "checksum juniper_serde 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e7e9ce729204903e3b083be7a96694d5d8cad1f04188052c406e73586d86878b"

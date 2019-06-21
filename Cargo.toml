@@ -4,6 +4,7 @@ cargo-features = ["profile-overrides"]
 members = [
     "src/core",
     "src/processors/git-clone",
+    "src/processors/json-edit",
     "src/processors/print-output",
     "src/processors/redis-command",
     "src/processors/shell-command",
@@ -12,6 +13,12 @@ members = [
     "src/server",
     "src/web-client",
 ]
+
+[patch.crates-io]
+# waiting for: http://git.io/fjwsN
+json-query = { git = "https://github.com/JeanMertz/json-query", branch = "newline" }
+# waiting for: http://git.io/fjwls
+jq-src = { git = "https://github.com/onelson/jq-src", branch = "master" }
 
 [profile.release]
 # Reduce filesize using LLVM's Link Time Optimization.
