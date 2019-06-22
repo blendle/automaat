@@ -2,16 +2,16 @@ cargo-features = ["profile-overrides"]
 
 [workspace]
 members = [
-    "src/core",
-    "src/processors/git-clone",
-    "src/processors/json-edit",
-    "src/processors/print-output",
-    "src/processors/redis-command",
-    "src/processors/shell-command",
-    "src/processors/sql-query",
-    "src/processors/string-regex",
-    "src/server",
-    "src/web-client",
+  "src/core",
+  "src/processors/git-clone",
+  "src/processors/json-edit",
+  "src/processors/print-output",
+  "src/processors/redis-command",
+  "src/processors/shell-command",
+  "src/processors/sql-query",
+  "src/processors/string-regex",
+  "src/server",
+  "src/web-client",
 ]
 
 [patch.crates-io]

@@ -8,7 +8,14 @@ repository = "https://github.com/blendle/automaat"
 keywords = ["automaat", "automation"]
 categories = ["command-line-utilities"]
 readme = "README.md"
-include = ["Cargo.toml", "src/**/*.rs", "migrations/**/*.sql", "README.md", "LICENSE-APACHE", "LICENSE-MIT"]
+include = [
+  "Cargo.toml",
+  "src/**/*.rs",
+  "migrations/**/*.sql",
+  "README.md",
+  "LICENSE-APACHE",
+  "LICENSE-MIT"
+]
 edition = "2018"
 
 [badges]
@@ -16,10 +23,18 @@ travis-ci = { repository = "blendle/automaat" }
 
 [dependencies]
 actix-files = "0.1.2"
-actix-web = { version = "1.0.2", default-features = false, features = ["brotli", "flate2-zlib"] }
+actix-web = { version = "1.0.2", default-features = false, features = [
+  "brotli",
+  "flate2-zlib"
+] }
 automaat-core = { version = "0.1", path = "../core" }
 chrono = { version = "0.4", features = ["serde"] }
-diesel = { version = "1.4", default-features = false, features = ["postgres", "r2d2", "chrono", "serde_json"] }
+diesel = { version = "1.4", default-features = false, features = [
+  "postgres",
+  "r2d2",
+  "chrono",
+  "serde_json"
+] }
 diesel-derive-enum = { version = "0.4", features = ["postgres"] }
 diesel_migrations = "1.4"
 futures = "0.1"

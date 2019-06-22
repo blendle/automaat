@@ -29,10 +29,10 @@
 //! let repo_url = Url::parse("https://github.com/blendle/automaat")?;
 //!
 //! let processor = GitClone {
-//!   url: repo_url,
-//!   username: None,
-//!   password: None,
-//!   path: Some("automaat-repo".to_owned())
+//!     url: repo_url,
+//!     username: None,
+//!     password: None,
+//!     path: Some("automaat-repo".to_owned())
 //! };
 //!
 //! processor.run(&context)?;
