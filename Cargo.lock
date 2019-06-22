@@ -416,6 +416,7 @@ name = "automaat-server"
 version = "0.1.0"
 dependencies = [
  "actix-files 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "actix-service 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "actix-web 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "automaat-core 0.1.0",
  "automaat-processor-git-clone 0.1.0",
