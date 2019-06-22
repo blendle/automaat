@@ -4,6 +4,7 @@ use processor_git_clone_v1::{GitClone, Input as GitCloneInput};
 use processor_print_output_v1::{Input as PrintOutputInput, PrintOutput};
 use processor_redis_command_v1::{Input as RedisCommandInput, RedisCommand};
 use processor_shell_command_v1::{Input as ShellCommandInput, ShellCommand};
+use processor_sql_query_v1::{Input as SqlQueryInput, SqlQuery};
 use processor_string_regex_v1::{Input as StringRegexInput, StringRegex};
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
@@ -116,7 +117,8 @@ macro_rules! impl_processors {
 impl_processors! {
     git_clone:     GitClone,
     print_output:  PrintOutput,
-    shell_command: ShellCommand,
     redis_command: RedisCommand,
+    shell_command: ShellCommand,
+    sql_query:     SqlQuery,
     string_regex:  StringRegex
 }

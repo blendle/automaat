@@ -413,6 +413,7 @@ dependencies = [
  "automaat-processor-print-output 0.1.0",
  "automaat-processor-redis-command 0.1.0",
  "automaat-processor-shell-command 0.1.0",
+ "automaat-processor-sql-query 0.1.0",
  "automaat-processor-string-regex 0.1.0",
  "chrono 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "diesel 1.4.2 (registry+https://github.com/rust-lang/crates.io-index)",

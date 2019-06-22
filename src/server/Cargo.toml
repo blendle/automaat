@@ -75,5 +75,11 @@ version = "0.1"
 path = "../processors/string-regex"
 features = ["juniper"]
 
+[dependencies.processor-sql-query-v1]
+package = "automaat-processor-sql-query"
+version = "0.1"
+path = "../processors/sql-query"
+features = ["juniper"]
+
 [dev-dependencies]
 version-sync = "0.8"
