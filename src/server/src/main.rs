@@ -64,6 +64,7 @@ use crate::middleware::RemoveContentLengthHeader;
 use crate::processor::{Input as ProcessorInput, Processor};
 use actix_files::Files;
 use actix_web::{
+    http::header,
     middleware::{Compress, DefaultHeaders},
     web, App, HttpServer,
 };
@@ -107,7 +108,10 @@ fn server(pool: DatabasePool) -> io::Result<()> {
 
         App::new()
             .wrap(Compress::default())
-            .wrap(DefaultHeaders::new().header("cache-control", "max-age=900"))
+            .wrap(
+                DefaultHeaders::new()
+                    .header(header::CACHE_CONTROL, "max-age=43200, must-revalidate"),
+            )
             // TODO: Fix wrong Content-Length header value: https://git.io/fjV2B
             .wrap(RemoveContentLengthHeader)
             .data(pool.clone())
