@@ -7,17 +7,31 @@ rust:
   # - stable
   # - beta
   - nightly
-cache: cargo
+cache:
+  cargo: true
+  directories:
+    - $HOME/.npm
 matrix:
   # allow_failures:
   #   - rust: nightly
   fast_finish: true
 before_script:
+  # configure rustup
   - echo "$TRAVIS_RUST_VERSION" > rust-toolchain
   - rustup component add rustfmt
   - rustup show
+
+  # install nodejs + packages
+  - curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
+  - sudo apt-get install -y nodejs
+  - npm install -g prettier prettier-plugin-toml
 script:
+  # lint :allthethings:
+  - prettier --check "*.{graphql,toml,yml,yaml,md}"
+  - prettier --check "./!(target)/**/*.{graphql,toml,yml,yaml,md}"
   - cargo fmt -- --check
+
+  # tests
   - cargo doc --all --all-features --no-deps
   - cargo build --all --all-features
   - cargo test --all --all-features

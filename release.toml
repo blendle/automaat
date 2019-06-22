@@ -2,7 +2,6 @@
 #
 # * cargo install cargo-release
 # * cargo release <MAJOR|MINOR|PATCH> --manifest-path src/<crate>/Cargo.toml --dry-run
-
 sign-commit = true
 no-dev-version = true
 tag-message = "{{crate_name}} v{{version}}"
