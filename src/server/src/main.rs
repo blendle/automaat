@@ -110,7 +110,8 @@ fn server(pool: DatabasePool) -> io::Result<()> {
             .wrap(Compress::default())
             .wrap(
                 DefaultHeaders::new()
-                    .header(header::CACHE_CONTROL, "max-age=43200, must-revalidate"),
+                    .header(header::CACHE_CONTROL, "max-age=43200, must-revalidate")
+                    .header(header::VARY, "Accept-Encoding, Accept, Accept-Language"),
             )
             // TODO: Fix wrong Content-Length header value: https://git.io/fjV2B
             .wrap(RemoveContentLengthHeader)
