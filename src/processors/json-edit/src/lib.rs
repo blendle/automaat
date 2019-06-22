@@ -425,6 +425,36 @@ mod tests {
                 "{\n  \"hello\": \"world\"\n}\n{\n  \"hello\": 2\n}".to_owned()
             )
         }
+
+        #[test]
+        fn test_complex_program_output() {
+            let mut processor = processor_stub();
+            processor.json = r#"["a", 2, true, null, {"hello":"world"},{"hello":2}]"#.to_owned();
+            processor.pretty_output = true;
+            processor.program = r#"tostream
+                                    | select(length > 1)
+                                    | (
+                                    .[0] | map(
+                                        if type == "number"
+                                        then "[" + tostring + "]"
+                                        else "." + .
+                                        end
+                                    ) | join("")
+                                    ) + " = " + (.[1] | @json)"#
+                .to_owned();
+
+            let context = Context::new().unwrap();
+            let output = processor.run(&context).unwrap().expect("Some");
+            let expected = "[0] = \"a\"\n\
+                            [1] = 2\n\
+                            [2] = true\n\
+                            [3] = null\n\
+                            [4].hello = \"world\"\n\
+                            [5].hello = 2"
+                .to_owned();
+
+            assert_eq!(output, expected)
+        }
     }
 
     mod validate {
