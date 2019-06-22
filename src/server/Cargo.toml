@@ -25,7 +25,8 @@ travis-ci = { repository = "blendle/automaat" }
 actix-files = "0.1.2"
 actix-web = { version = "1.0.2", default-features = false, features = [
   "brotli",
-  "flate2-zlib"
+  "flate2-zlib",
+  "ssl"
 ] }
 automaat-core = { version = "0.1", path = "../core" }
 chrono = { version = "0.4", features = ["serde"] }

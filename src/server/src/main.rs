@@ -68,6 +68,7 @@ use actix_web::{
 use diesel::pg::PgConnection;
 use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
 use diesel_migrations::embed_migrations;
+use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use std::{env, io, ops::Deref, sync::Arc, thread};
 
 /// The main database connection pool shared across all threads.
@@ -99,7 +100,7 @@ fn server(pool: DatabasePool) -> io::Result<()> {
     let bind = env::var("SERVER_BIND").unwrap_or_else(|_| "0.0.0.0:8000".to_owned());
     let schema = Arc::new(Schema::new(QueryRoot, MutationRoot));
 
-    HttpServer::new(move || {
+    let server = HttpServer::new(move || {
         let root = env::var("SERVER_ROOT").unwrap_or_else(|_| "/public".to_owned());
 
         App::new()
@@ -113,10 +114,28 @@ fn server(pool: DatabasePool) -> io::Result<()> {
             .route("/graphql", web::post().to_async(handlers::graphql))
             .route("/health", web::get().to(handlers::health))
             .service(Files::new("/", root).index_file("index.html"))
-    })
-    .bind(bind)
-    .unwrap()
-    .run()
+    });
+
+    let server = if let Ok(key_path) = env::var("SERVER_SSL_KEY_PATH") {
+        let chain_path =
+            env::var("SERVER_SSL_CHAIN_PATH").expect("SERVER_SSL_CHAIN_PATH environment variable");
+
+        let mut builder =
+            SslAcceptor::mozilla_modern(SslMethod::tls()).expect("valid SSL configuration");
+
+        builder
+            .set_private_key_file(key_path, SslFiletype::PEM)
+            .expect("valid certificate private key file");
+        builder
+            .set_certificate_chain_file(chain_path)
+            .expect("valid certificate chain file");
+
+        server.bind_ssl(bind, builder)?
+    } else {
+        server.bind(bind)?
+    };
+
+    server.run()
 }
 
 // Embeds all migrations inside the binary, so that they can be run when needed
