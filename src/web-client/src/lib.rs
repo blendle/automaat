@@ -70,18 +70,24 @@ pub fn run() -> Result<(), JsValue> {
 
     SearchBarView::init();
     let query = SearchBarView::search_query().try_into().ok();
+    let has_query = query.is_some();
 
-    spawn_local(Pipelines::fetch(query).and_then(|pipelines| {
+    spawn_local(Pipelines::fetch(query).and_then(move |pipelines| {
         PipelinesView::update(&pipelines);
+
+        if !has_query {
+            StatisticsView::update(&TotalPipelines(pipelines.len()));
+        };
+
         futures::future::ok(())
     }));
 
-    // TODO: we're doing an extra call just to show an accurate "total
-    // pipelines" statistic. Seems a bit wasteful.
-    spawn_local(Pipelines::fetch(None).and_then(|pipelines| {
-        StatisticsView::update(&TotalPipelines(pipelines.len()));
-        futures::future::ok(())
-    }));
+    if has_query {
+        spawn_local(Pipelines::fetch(None).and_then(|pipelines| {
+            StatisticsView::update(&TotalPipelines(pipelines.len()));
+            futures::future::ok(())
+        }));
+    };
 
     spawn_local(TaskStatuses::fetch().and_then(|tasks| {
         let running_count = tasks.iter().filter(|task| task.is_running()).count();
