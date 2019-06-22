@@ -1,0 +1,83 @@
+[config.modify_core_tasks]
+private = true
+namespace = "default"
+
+[env]
+LATEST_SERVER_TAG = { script = ["git -c 'versionsort.suffix=-' tag --list --sort=-v:refname 'automaat-server-*' | awk -F- '{print $NF}'"] }
+LATEST_CLIENT_TAG = { script = ["git -c 'versionsort.suffix=-' tag --list --sort=-v:refname 'automaat-web-client-*' | awk -F- '{print $NF}'"] }
+CONTAINER_RELEASE_IMG = "blendle/automaat:server-v${LATEST_SERVER_TAG}_web-client-v${LATEST_CLIENT_TAG}"
+CONTAINER_DEVELOP_IMG = "blendle/automaat:latest"
+
+[tasks.wasm-release]
+description = "Build WebAssembly files in release mode for the web-client crate."
+category = "Build"
+workspace = false
+command = "wasm-pack"
+args = [
+  "build",
+  "--release",
+  "--target", "web",
+  "--out-dir", "static/app",
+  "--out-name", "automaat",
+  "src/web-client",
+  "--",
+  "--no-default-features",
+]
+
+[tasks.wasm-opt]
+description = "Optimize WebAssembly file for release."
+category = "Build"
+workspace = false
+command = "wasm-opt"
+args = [
+  "-Oz",
+  "--output", "src/web-client/static/app/automaat_bg.wasm",
+  "src/web-client/static/app/automaat_bg.wasm",
+]
+
+[tasks.build-container]
+description = "Build a development Docker container, including the server and web-client dependencies."
+category = "Build"
+workspace = false
+dependencies = [
+  "wasm-release",
+  "wasm-opt",
+  "docker::build-server",
+  "docker::build-image"
+]
+
+[tasks.build-container-release]
+description = "Build a release Docker container, including the server and web-client dependencies."
+category = "Build"
+workspace = false
+dependencies = [
+  "wasm-release",
+  "wasm-opt",
+  "docker::build-server",
+  "docker::build-image-release"
+]
+
+[tasks."docker::build-server"]
+private = true
+workspace = false
+command = "docker"
+args = [
+  "run",
+  "--rm",
+  "--volume", "cargo-cache:/root/.cargo/registry",
+  "--volume", "${CARGO_MAKE_WORKING_DIRECTORY}:/volume",
+  "clux/muslrust:nightly",
+  "cargo", "build", "--bin", "automaat-server", "--release",
+]
+
+[tasks."docker::build-image"]
+private = true
+workspace = false
+command = "docker"
+args = ["build", "--tag", "${CONTAINER_DEVELOP_IMG}", "${CARGO_MAKE_WORKING_DIRECTORY}"]
+
+[tasks."docker::build-image-release"]
+private = true
+workspace = false
+command = "docker"
+args = ["build", "--tag", "${CONTAINER_RELEASE_IMG}", "${CARGO_MAKE_WORKING_DIRECTORY}"]

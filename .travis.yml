@@ -27,7 +27,7 @@ before_script:
   - npm install -g prettier prettier-plugin-toml
 script:
   # lint :allthethings:
-  - prettier --check "*.{graphql,toml,yml,yaml,md}"
+  - prettier --check "*.{graphql,toml,yml,yaml,md}" !Makefile.toml
   - prettier --check "./!(target)/**/*.{graphql,toml,yml,yaml,md}"
   - cargo fmt -- --check
 
