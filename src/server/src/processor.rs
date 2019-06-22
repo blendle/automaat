@@ -1,6 +1,7 @@
 use automaat_core::{Context, Processor as CoreProcessor};
 use juniper::GraphQLInputObject;
 use processor_git_clone_v1::{GitClone, Input as GitCloneInput};
+use processor_json_edit_v1::{Input as JsonEditInput, JsonEdit};
 use processor_print_output_v1::{Input as PrintOutputInput, PrintOutput};
 use processor_redis_command_v1::{Input as RedisCommandInput, RedisCommand};
 use processor_shell_command_v1::{Input as ShellCommandInput, ShellCommand};
@@ -116,6 +117,7 @@ macro_rules! impl_processors {
 // regular one.
 impl_processors! {
     git_clone:     GitClone,
+    json_edit:     JsonEdit,
     print_output:  PrintOutput,
     redis_command: RedisCommand,
     shell_command: ShellCommand,

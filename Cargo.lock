@@ -410,6 +410,7 @@ dependencies = [
  "actix-web 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "automaat-core 0.1.0",
  "automaat-processor-git-clone 0.1.0",
+ "automaat-processor-json-edit 0.1.0",
  "automaat-processor-print-output 0.1.0",
  "automaat-processor-redis-command 0.1.0",
  "automaat-processor-shell-command 0.1.0",
