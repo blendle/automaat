@@ -5,4 +5,4 @@
 sign-commit = true
 no-dev-version = true
 tag-message = "{{crate_name}} v{{version}}"
-pre-release-commit-message = "{{crate_name}} v{{version}}"
+pre-release-commit-message = "release: {{crate_name}} v{{version}}"
