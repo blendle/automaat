@@ -8,14 +8,27 @@ rust:
   # - beta
   - nightly
 cache:
-  cargo: true
   directories:
+    - $HOME/.cache/sccache
+    - $HOME/.cargo
     - $HOME/.npm
+    - $HOME/.rustup
+env:
+  global:
+    - CARGO_BUILD_JOBS=8
+    - CARGO_TERM_COLOR=always
+    - RUSTC_WRAPPER=~/.cargo/bin/sccache
+    - SCCACHE_ERROR_LOG=$HOME/sccache.log
+    - SCCACHE_IDLE_TIMEOUT=0
+    - SCCACHE_VERSION=0.2.8
 matrix:
   # allow_failures:
   #   - rust: nightly
   fast_finish: true
-before_script:
+install:
+  # install sccache for improved build caching
+  - env RUSTC_WRAPPER= cargo i sccache --version "$SCCACHE_VERSION" || true
+
   # configure rustup
   - echo "$TRAVIS_RUST_VERSION" > rust-toolchain
   - rustup component add rustfmt
@@ -25,6 +38,8 @@ before_script:
   - curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
   - sudo apt-get install -y nodejs
   - npm install -g prettier prettier-plugin-toml
+before_script:
+  - env RUST_LOG=sccache=error sccache --start-server
 script:
   # lint :allthethings:
   - prettier --check "*.{graphql,toml,yml,yaml,md}" !Makefile.toml
@@ -32,9 +47,13 @@ script:
   - cargo fmt -- --check
 
   # tests
-  - cargo doc --all --all-features --no-deps
   - cargo build --all --all-features
+  - cargo doc --all --all-features --no-deps
   - cargo test --all --all-features
+
+  # stop sccache
+  - sccache --stop-server || true
+  - cat "$SCCACHE_ERROR_LOG"
 services:
   - postgresql
   - redis-server
