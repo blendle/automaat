@@ -53,6 +53,12 @@ version = "0.1"
 path = "../processors/git-clone"
 features = ["juniper"]
 
+[dependencies.processor-http-request-v1]
+package = "automaat-processor-http-request"
+version = "0.1"
+path = "../processors/http-request"
+features = ["juniper"]
+
 [dependencies.processor-json-edit-v1]
 package = "automaat-processor-json-edit"
 version = "0.1"

@@ -1,12 +1,5 @@
 use automaat_core::{Context, Processor as CoreProcessor};
 use juniper::GraphQLInputObject;
-use processor_git_clone_v1::{GitClone, Input as GitCloneInput};
-use processor_json_edit_v1::{Input as JsonEditInput, JsonEdit};
-use processor_print_output_v1::{Input as PrintOutputInput, PrintOutput};
-use processor_redis_command_v1::{Input as RedisCommandInput, RedisCommand};
-use processor_shell_command_v1::{Input as ShellCommandInput, ShellCommand};
-use processor_sql_query_v1::{Input as SqlQueryInput, SqlQuery};
-use processor_string_regex_v1::{Input as StringRegexInput, StringRegex};
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::error;
@@ -39,9 +32,11 @@ macro_rules! impl_processors {
             }
         }
 
-        // Dynamically construct items by combinding `$processor` and `Input` to
+        // Dynamically construct items by combining `$processor` and `Input` to
         // create types such as `GitClineInput`, etc...
         paste::item! {
+            $(use [<processor_ $name _v1>]::{$processor, Input as [<$processor Input>]};)+
+
             // NOTE: GraphQL does not support union input types, so this struct
             // with one field for each (optional) processor type is the best we
             // can do for now without giving up the typed nature of the input
@@ -117,6 +112,7 @@ macro_rules! impl_processors {
 // regular one.
 impl_processors! {
     git_clone:     GitClone,
+    http_request:  HttpRequest,
     json_edit:     JsonEdit,
     print_output:  PrintOutput,
     redis_command: RedisCommand,
