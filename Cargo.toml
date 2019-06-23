@@ -4,6 +4,7 @@ cargo-features = ["profile-overrides"]
 members = [
   "src/core",
   "src/processors/git-clone",
+  "src/processors/http-request",
   "src/processors/json-edit",
   "src/processors/print-output",
   "src/processors/redis-command",
