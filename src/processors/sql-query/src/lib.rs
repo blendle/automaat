@@ -125,7 +125,7 @@ pub struct SqlQuery {
 ///
 /// [io]: https://graphql.github.io/graphql-spec/June2018/#sec-Input-Objects
 #[cfg(feature = "juniper")]
-#[graphql(name = "StringRegexInput")]
+#[graphql(name = "SqlQueryInput")]
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, juniper::GraphQLInputObject)]
 pub struct Input {
     statement: String,
