@@ -180,7 +180,7 @@ impl From<Method> for reqwest::Method {
 }
 
 /// A request header.
-#[cfg_attr(feature = "juniper", derive(juniper::GraphQLInputObject))]
+#[cfg_attr(feature = "juniper", derive(juniper::GraphQLObject))]
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Header {
     /// The name of the header.
@@ -200,6 +200,16 @@ impl Header {
     }
 }
 
+#[cfg(feature = "juniper")]
+impl From<HeaderInput> for Header {
+    fn from(input: HeaderInput) -> Self {
+        Self {
+            name: input.name,
+            value: input.value,
+        }
+    }
+}
+
 /// The GraphQL [Input Object][io] used to initialize the processor via an API.
 ///
 /// [`HttpRequest`] implements `From<Input>`, so you can directly initialize
@@ -215,9 +225,20 @@ pub struct Input {
     #[serde(with = "url_serde")]
     url: Url,
     method: Method,
-    headers: Option<Vec<Header>>,
+    headers: Option<Vec<HeaderInput>>,
     body: Option<String>,
     assert_status: Option<Vec<i32>>,
+}
+
+/// A request header.
+#[cfg(feature = "juniper")]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, juniper::GraphQLInputObject)]
+pub struct HeaderInput {
+    /// The name of the header.
+    pub name: String,
+
+    /// The value of the header.
+    pub value: String,
 }
 
 #[cfg(feature = "juniper")]
@@ -226,7 +247,12 @@ impl From<Input> for HttpRequest {
         Self {
             url: input.url,
             method: input.method,
-            headers: input.headers.unwrap_or_else(Default::default),
+            headers: input
+                .headers
+                .unwrap_or_else(Default::default)
+                .into_iter()
+                .map(Into::into)
+                .collect(),
             body: input.body,
             assert_status: input.assert_status.unwrap_or_else(Default::default),
         }
