@@ -30,7 +30,8 @@ use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::convert::AsRef;
 
-/// The model representing a variable stored in the database.
+/// The model representing a variable definition (without an actual value)
+/// stored in the database.
 #[derive(Clone, Debug, Deserialize, Serialize, Associations, Identifiable, Queryable)]
 #[belongs_to(Pipeline)]
 #[table_name = "variables"]
@@ -38,14 +39,60 @@ pub(crate) struct Variable {
     pub(crate) id: i32,
     pub(crate) key: String,
     pub(crate) description: Option<String>,
+    // TODO: figure how to use Diesel's `embed` feature to move this into a
+    // `VariableConstraint` struct, which can also hold other constraints (such
+    // as `optional: bool`) in the future.
+    pub(crate) selection_constraint: Option<Vec<String>>,
     pub(crate) pipeline_id: i32,
 }
 
 /// The actual runtime variable value belonging to a value (matched by key).
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub(crate) struct VariableValue {
     pub(crate) key: String,
     pub(crate) value: String,
+}
+
+pub(crate) fn missing_values<'a>(
+    variables: &'a [Variable],
+    values: &'a [VariableValue],
+) -> Option<Vec<&'a Variable>> {
+    let missing = variables
+        .iter()
+        .filter(|variable| !values.iter().any(|value| value.key == variable.key))
+        .collect::<Vec<_>>();
+
+    if missing.is_empty() {
+        None
+    } else {
+        Some(missing)
+    }
+}
+
+pub(crate) fn selection_constraint_mismatch<'a>(
+    variables: &'a [Variable],
+    values: &'a [VariableValue],
+) -> Option<Vec<(&'a Variable, &'a VariableValue)>> {
+    let invalid = variables
+        .iter()
+        .filter_map(|variable| {
+            if let Some(selection) = &variable.selection_constraint {
+                for value in values {
+                    if variable.key == value.key && !selection.contains(&value.value) {
+                        return Some((variable, value));
+                    }
+                }
+            };
+
+            None
+        })
+        .collect::<Vec<_>>();
+
+    if invalid.is_empty() {
+        None
+    } else {
+        Some(invalid)
+    }
 }
 
 /// Contains all the details needed to store a variable in the database.
@@ -56,16 +103,22 @@ pub(crate) struct VariableValue {
 pub(crate) struct NewVariable<'a> {
     key: &'a str,
     description: Option<&'a str>,
+    selection_constraint: Option<Vec<&'a str>>,
     pipeline_id: Option<i32>,
 }
 
 impl<'a> NewVariable<'a> {
     /// Initialize a `NewVariable` struct, which can be inserted into the
     /// database using the [`NewVariable#add_to_pipeline`] method.
-    pub(crate) const fn new(key: &'a str, description: Option<&'a str>) -> Self {
+    pub(crate) const fn new(
+        key: &'a str,
+        selection_constraint: Option<Vec<&'a str>>,
+        description: Option<&'a str>,
+    ) -> Self {
         Self {
             key,
             description,
+            selection_constraint,
             pipeline_id: None,
         }
     }
@@ -119,6 +172,12 @@ pub(crate) mod graphql {
         /// An optional description that can be used to explain to a person
         /// about to run a pipeline what the intent is of the required variable.
         pub(crate) description: Option<String>,
+
+        /// An optional selection constraint.
+        ///
+        /// A variable value has to match one of the provided selections in
+        /// order to be considered a valid variable.
+        pub(crate) selection_constraint: Option<Vec<String>>,
     }
 
     /// Contains all the data needed to replace templated step configs.
@@ -146,6 +205,20 @@ pub(crate) mod graphql {
         /// accordingly by the client.
         fn description() -> Option<&str> {
             self.description.as_ref().map(String::as_ref)
+        }
+
+        /// An (optional) set of value constraints for this variable.
+        ///
+        /// If this field returns an array, any `VariableValue` matching the key
+        /// of this variable will need to have its value match one of the
+        /// strings inside this array.
+        ///
+        /// Clients are encouraged to enforce this invariant, for example by
+        /// changing the input field into a select box.
+        fn selection_constraint() -> Option<Vec<&str>> {
+            self.selection_constraint
+                .as_ref()
+                .map(|v| v.iter().map(String::as_ref).collect())
         }
 
         /// The pipeline to which the variable belongs.
@@ -179,7 +252,14 @@ pub(crate) mod graphql {
 
 impl<'a> From<&'a graphql::CreateVariableInput> for NewVariable<'a> {
     fn from(input: &'a graphql::CreateVariableInput) -> Self {
-        Self::new(&input.key, input.description.as_ref().map(String::as_ref))
+        Self::new(
+            &input.key,
+            input
+                .selection_constraint
+                .as_ref()
+                .map(|v| v.iter().map(String::as_str).collect()),
+            input.description.as_ref().map(String::as_ref),
+        )
     }
 }
 
@@ -189,5 +269,68 @@ impl From<graphql::VariableValueInput> for VariableValue {
             key: input.key,
             value: input.value,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn variable_stub() -> Variable {
+        Variable {
+            id: 0,
+            key: "hello".to_owned(),
+            description: None,
+            selection_constraint: None,
+            pipeline_id: 0,
+        }
+    }
+
+    fn var(key: &str, selection: Vec<&str>) -> Variable {
+        let mut var = variable_stub();
+        var.key = key.to_owned();
+        var.selection_constraint = Some(selection.into_iter().map(ToOwned::to_owned).collect());
+        var
+    }
+
+    fn val(key: &str, value: &str) -> VariableValue {
+        VariableValue {
+            key: key.to_owned(),
+            value: value.to_owned(),
+        }
+    }
+
+    #[test]
+    fn test_missing_values() {
+        let galaxy = var("galaxy", vec![]);
+        let planet = var("planet", vec![]);
+        let variables = vec![galaxy.clone(), planet];
+
+        let planet_earth = val("planet", "earth");
+        let universe_42 = val("universe", "42");
+        let values = vec![planet_earth, universe_42];
+
+        let missing = missing_values(&variables, &values).expect("Some");
+
+        assert_eq!(missing.len(), 1);
+        assert_eq!(missing[0].key, galaxy.key);
+    }
+
+    #[test]
+    fn test_selection_constraint_mismatch() {
+        let galaxy = var("galaxy", vec!["milkyway", "andromeda"]);
+        let planet = var("planet", vec!["earth", "venus"]);
+        let variables = vec![galaxy.clone(), planet];
+
+        let galaxy_loopy = val("galaxy", "loopy");
+        let planet_earth = val("planet", "earth");
+        let universe_42 = val("universe", "42");
+        let values = vec![galaxy_loopy.clone(), planet_earth, universe_42];
+
+        let mismatch = selection_constraint_mismatch(&variables, &values).expect("Some");
+
+        assert_eq!(mismatch.len(), 1);
+        assert_eq!(mismatch[0].0.key, galaxy.key);
+        assert_eq!(mismatch[0].1, &galaxy_loopy);
     }
 }

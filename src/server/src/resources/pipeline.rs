@@ -15,7 +15,7 @@
 //!
 //! [`variable`]: crate::resources::variable
 
-use crate::resources::{NewStep, NewVariable, Step, Variable, VariableValue};
+use crate::resources::{NewStep, NewVariable, Step, Variable};
 use crate::schema::pipelines;
 use crate::Database;
 use diesel::prelude::*;
@@ -45,22 +45,6 @@ impl Pipeline {
         use crate::schema::variables::dsl::*;
 
         Variable::belonging_to(self).order(id.desc()).load(&**conn)
-    }
-
-    pub(crate) fn get_missing_variable(
-        &self,
-        conn: &Database,
-        variable_values: &[VariableValue],
-    ) -> QueryResult<Option<Variable>> {
-        let result = self.variables(conn)?.into_iter().find_map(|v| {
-            if variable_values.iter().any(|vv| vv.key == v.key) {
-                return None;
-            }
-
-            Some(v)
-        });
-
-        Ok(result)
     }
 }
 

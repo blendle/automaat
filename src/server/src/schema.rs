@@ -49,6 +49,7 @@ table! {
         id -> Integer,
         key -> Text,
         description -> Nullable<Text>,
+        selection_constraint -> Nullable<Array<Text>>,
         pipeline_id -> Integer,
     }
 }

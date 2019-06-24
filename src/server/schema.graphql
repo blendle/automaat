@@ -24,6 +24,7 @@ input CreateTaskFromPipelineInput {
 input CreateVariableInput {
   key: String!
   description: String
+  selectionConstraint: [String!]
 }
 
 scalar DateTimeUtc
@@ -184,6 +185,7 @@ type Variable {
   id: ID!
   key: String!
   description: String
+  selectionConstraint: [String!]
   pipeline: Pipeline
 }
 

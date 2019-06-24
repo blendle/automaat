@@ -1,5 +1,5 @@
 use crate::resources::{
-    CreatePipelineInput, CreateTaskFromPipelineInput, NewPipeline, NewTask, Pipeline,
+    variable, CreatePipelineInput, CreateTaskFromPipelineInput, NewPipeline, NewTask, Pipeline,
     SearchPipelineInput, Task, VariableValue,
 };
 use crate::Database;
@@ -107,9 +107,33 @@ impl MutationRoot {
             .map(Into::into)
             .collect::<Vec<VariableValue>>();
 
-        if let Some(variable) = pipeline.get_missing_variable(context, &variable_values)? {
-            return Err(format!(r#"missing variable: "{}""#, variable.key).into());
-        };
+        let pipeline_variables = pipeline.variables(context)?;
+
+        if let Some(variables) = variable::missing_values(&pipeline_variables, &variable_values) {
+            let keys = variables.iter().map(|v| v.key.as_str()).collect::<Vec<_>>();
+
+            return Err(format!(r#"missing variable values: {}"#, keys.join(", ")).into());
+        }
+
+        if let Some(results) =
+            variable::selection_constraint_mismatch(&pipeline_variables, &variable_values)
+        {
+            let variable = results[0].0;
+            let value = results[0].1;
+
+            // TODO: turn this into a structured error object, so we can expose
+            // all the invalid variables at once.
+            return Err(format!(
+                r#"invalid variable value: "{}", must be one of: {:?}"#,
+                value.key,
+                variable
+                    .selection_constraint
+                    .as_ref()
+                    .unwrap_or(&vec![])
+                    .join(", ")
+            )
+            .into());
+        }
 
         let mut new_task = NewTask::create_from_pipeline(context, &pipeline, &variable_values)
             .map_err(Into::<FieldError>::into)?;

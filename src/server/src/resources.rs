@@ -1,7 +1,7 @@
 mod pipeline;
 mod step;
 mod task;
-mod variable;
+pub(crate) mod variable;
 
 pub(crate) use pipeline::{
     graphql::{CreatePipelineInput, SearchPipelineInput},
