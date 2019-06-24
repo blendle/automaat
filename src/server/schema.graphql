@@ -43,6 +43,56 @@ input GitCloneInput {
   path: String
 }
 
+type Header {
+  name: String!
+  value: String!
+}
+
+input HeaderInput {
+  name: String!
+  value: String!
+}
+
+type HttpRequest {
+  url: Url!
+  method: Method!
+  headers: [Header!]!
+  body: String
+  assertStatus: [Int!]!
+}
+
+input HttpRequestInput {
+  url: Url!
+  method: Method!
+  headers: [HeaderInput!]
+  body: String
+  assertStatus: [Int!]
+}
+
+type JsonEdit {
+  json: String!
+  program: String!
+  prettyOutput: Boolean!
+}
+
+input JsonEditInput {
+  json: String!
+  program: String!
+  prettyOutput: Boolean
+}
+
+enum Method {
+  CONNECT
+  DELETE
+  GET
+  HEAD
+  OPTIONS
+  PATCH
+  POST
+  PUT
+  TRACE
+}
+
 type MutationRoot {
   createPipeline(pipeline: CreatePipelineInput!): Pipeline!
   createTaskFromPipeline(task: CreateTaskFromPipelineInput!): Task!
@@ -66,15 +116,21 @@ input PrintOutputInput {
 
 union Processor =
     GitClone
+  | HttpRequest
+  | JsonEdit
   | PrintOutput
-  | ShellCommand
   | RedisCommand
+  | ShellCommand
+  | SqlQuery
   | StringRegex
 input ProcessorInput {
   gitClone: GitCloneInput
+  httpRequest: HttpRequestInput
+  jsonEdit: JsonEditInput
   printOutput: PrintOutputInput
-  shellCommand: ShellCommandInput
   redisCommand: RedisCommandInput
+  shellCommand: ShellCommandInput
+  sqlQuery: SqlQueryInput
   stringRegex: StringRegexInput
 }
 
@@ -114,6 +170,16 @@ input ShellCommandInput {
   arguments: [String!]
   cwd: String
   paths: [String!]
+}
+
+type SqlQuery {
+  statement: String!
+  url: Url!
+}
+
+input SqlQueryInput {
+  statement: String!
+  url: Url!
 }
 
 type Step {
