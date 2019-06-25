@@ -24,6 +24,7 @@ input CreateTaskFromPipelineInput {
 input CreateVariableInput {
   key: String!
   description: String
+  defaultValue: String
   constraints: VariableConstraintsInput!
 }
 
@@ -251,6 +252,7 @@ type Variable {
   id: ID!
   key: String!
   description: String
+  defaultValue: String
   constraints: VariableConstraints!
   pipeline: Pipeline
 }

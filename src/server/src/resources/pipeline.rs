@@ -262,7 +262,12 @@ impl<'a> TryFrom<&'a graphql::CreatePipelineInput> for NewPipeline<'a> {
     fn try_from(input: &'a graphql::CreatePipelineInput) -> Result<Self, Self::Error> {
         let mut pipeline = Self::new(&input.name, input.description.as_ref().map(String::as_ref));
 
-        let variables = input.variables.iter().map(Into::into).collect();
+        let variables = input
+            .variables
+            .iter()
+            .map(TryInto::try_into)
+            .collect::<Result<Vec<_>, String>>()?;
+
         let steps = input
             .steps
             .iter()

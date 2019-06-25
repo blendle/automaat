@@ -28,7 +28,7 @@ use crate::schema::variables;
 use crate::Database;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::convert::AsRef;
+use std::convert::{AsRef, TryFrom};
 
 /// The model representing a variable definition (without an actual value)
 /// stored in the database.
@@ -43,6 +43,7 @@ pub(crate) struct Variable {
     // `VariableConstraint` struct, which can also hold other constraints (such
     // as `optional: bool`) in the future.
     pub(crate) selection_constraint: Option<Vec<String>>,
+    pub(crate) default_value: Option<String>,
     pub(crate) pipeline_id: i32,
 }
 
@@ -104,23 +105,39 @@ pub(crate) struct NewVariable<'a> {
     key: &'a str,
     description: Option<&'a str>,
     selection_constraint: Option<Vec<&'a str>>,
+    default_value: Option<&'a str>,
     pipeline_id: Option<i32>,
 }
 
 impl<'a> NewVariable<'a> {
     /// Initialize a `NewVariable` struct, which can be inserted into the
     /// database using the [`NewVariable#add_to_pipeline`] method.
-    pub(crate) const fn new(
+    ///
+    /// Returns an error if the `default_value` value is provided, but is not a
+    /// subset of the values provided in `selection_constraint`.
+    pub(crate) fn new(
         key: &'a str,
         selection_constraint: Option<Vec<&'a str>>,
+        default_value: Option<&'a str>,
         description: Option<&'a str>,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, String> {
+        if let Some(selection) = &selection_constraint {
+            if let Some(default) = &default_value {
+                if !selection.contains(default) {
+                    return Err(
+                        "default value must be included in the selection constraint".to_owned()
+                    );
+                }
+            }
+        };
+
+        Ok(Self {
             key,
             description,
             selection_constraint,
+            default_value,
             pipeline_id: None,
-        }
+        })
     }
 
     /// Add a variable to a [`Pipeline`], by storing it in the database as an
@@ -172,6 +189,10 @@ pub(crate) mod graphql {
         /// An optional description that can be used to explain to a person
         /// about to run a pipeline what the intent is of the required variable.
         pub(crate) description: Option<String>,
+
+        /// An optional default value that can be used by clients to pre-fill
+        /// the variable value before running a pipeline.
+        pub(crate) default_value: Option<String>,
 
         /// A set of constraints applied to future values attached to this
         /// variable.
@@ -232,6 +253,14 @@ pub(crate) mod graphql {
             self.description.as_ref().map(String::as_ref)
         }
 
+        /// An (optional) default value defined for the variable.
+        ///
+        /// Clients can use this to pre-fill a value, or select the correct
+        /// value if a selection constrained is defined for the variable.
+        fn default_value() -> Option<&str> {
+            self.default_value.as_ref().map(String::as_ref)
+        }
+
         /// A set of value constraints for this variable.
         ///
         /// This object will always be defined, but it might be empty, if no
@@ -274,8 +303,10 @@ pub(crate) mod graphql {
     }
 }
 
-impl<'a> From<&'a graphql::CreateVariableInput> for NewVariable<'a> {
-    fn from(input: &'a graphql::CreateVariableInput) -> Self {
+impl<'a> TryFrom<&'a graphql::CreateVariableInput> for NewVariable<'a> {
+    type Error = String;
+
+    fn try_from(input: &'a graphql::CreateVariableInput) -> Result<Self, Self::Error> {
         Self::new(
             &input.key,
             input
@@ -283,6 +314,7 @@ impl<'a> From<&'a graphql::CreateVariableInput> for NewVariable<'a> {
                 .selection
                 .as_ref()
                 .map(|v| v.iter().map(String::as_str).collect()),
+            input.default_value.as_ref().map(String::as_ref),
             input.description.as_ref().map(String::as_ref),
         )
     }
@@ -307,6 +339,7 @@ mod tests {
             key: "hello".to_owned(),
             description: None,
             selection_constraint: None,
+            default_value: None,
             pipeline_id: 0,
         }
     }
@@ -357,5 +390,26 @@ mod tests {
         assert_eq!(mismatch.len(), 1);
         assert_eq!(mismatch[0].0.key, galaxy.key);
         assert_eq!(mismatch[0].1, &galaxy_loopy);
+    }
+
+    #[test]
+    fn test_new_variable_with_default() {
+        let _ = NewVariable::new("var 1", None, Some("foo"), None).unwrap();
+    }
+
+    #[test]
+    fn test_new_variable_with_selection_constraint_no_default() {
+        let _ = NewVariable::new("var 1", Some(vec!["foo", "bar"]), None, None).unwrap();
+    }
+
+    #[test]
+    fn test_new_variable_with_default_matching_selection_constraint() {
+        let _ = NewVariable::new("var 1", Some(vec!["foo", "bar"]), Some("foo"), None).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_new_variable_default_not_in_selection_constraint() {
+        let _ = NewVariable::new("var 1", Some(vec!["foo", "bar"]), Some("baz"), None).unwrap();
     }
 }
