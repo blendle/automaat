@@ -6,6 +6,7 @@ query FetchPipelineDetails($id: ID!) {
     variables {
       id
       key
+      defaultValue
       description
 
       constraints {
