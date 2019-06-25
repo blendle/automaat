@@ -47,9 +47,10 @@ script:
   - cargo fmt -- --check
 
   # tests
-  - cargo build --all --all-features
-  - cargo doc --all --all-features --no-deps
-  - cargo test --all --all-features
+  - cargo build  --all --bins --examples --tests --benches --all-targets --all-features
+  - cargo clippy --all --bins --examples --tests --benches --all-targets --all-features
+  - cargo test   --all --bins --examples --tests --benches --all-targets --all-features
+  - cargo doc    --all --bins --all-features --no-deps --document-private-items
 
   # stop sccache
   - sccache --stop-server || true

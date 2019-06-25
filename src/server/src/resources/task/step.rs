@@ -187,7 +187,7 @@ impl TaskStep {
 
 /// Contains all the details needed to store a step in the database.
 ///
-/// Use [`NewStep::new`] to initialize this struct.
+/// Use [`NewTaskStep::new`] to initialize this struct.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct NewTaskStep<'a> {
     name: &'a str,
