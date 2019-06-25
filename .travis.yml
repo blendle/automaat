@@ -6,7 +6,7 @@ rust:
   # this will be changed in the near future.
   # - stable
   # - beta
-  - nightly
+  - nightly-2019-06-25
 cache:
   directories:
     - $HOME/.cache/sccache
@@ -21,17 +21,18 @@ env:
     - SCCACHE_ERROR_LOG=$HOME/sccache.log
     - SCCACHE_IDLE_TIMEOUT=0
     - SCCACHE_VERSION=0.2.8
+    - CARGO_MAKE_VERSION=0.20.0
 matrix:
   # allow_failures:
   #   - rust: nightly
   fast_finish: true
 install:
   # install sccache for improved build caching
-  - env RUSTC_WRAPPER= cargo i sccache --version "$SCCACHE_VERSION" || true
+  - env RUSTC_WRAPPER= cargo install sccache --version "$SCCACHE_VERSION" || true
 
   # configure rustup
   - echo "$TRAVIS_RUST_VERSION" > rust-toolchain
-  - rustup component add rustfmt
+  - rustup component add rustfmt clippy
   - rustup show
 
   # install nodejs + packages
@@ -40,17 +41,9 @@ install:
   - npm install -g prettier prettier-plugin-toml
 before_script:
   - env RUST_LOG=sccache=error sccache --start-server
+  - cargo install cargo-make --version "$CARGO_MAKE_VERSION" || true
 script:
-  # lint :allthethings:
-  - prettier --check "*.{graphql,toml,yml,yaml,md}" !Makefile.toml
-  - prettier --check "./!(target)/**/*.{graphql,toml,yml,yaml,md}"
-  - cargo fmt -- --check
-
-  # tests
-  - cargo build  --all --bins --examples --tests --benches --all-targets --all-features
-  - cargo clippy --all --bins --examples --tests --benches --all-targets --all-features
-  - cargo test   --all --bins --examples --tests --benches --all-targets --all-features
-  - cargo doc    --all --bins --all-features --no-deps --document-private-items
+  - cargo make test
 
   # stop sccache
   - sccache --stop-server || true

@@ -8,6 +8,62 @@ LATEST_CLIENT_TAG = { script = ["git -c 'versionsort.suffix=-' tag --list --sort
 CONTAINER_RELEASE_IMG = "blendle/automaat:server-v${LATEST_SERVER_TAG}_web-client-v${LATEST_CLIENT_TAG}"
 CONTAINER_DEVELOP_IMG = "blendle/automaat:latest"
 
+[tasks.test]
+description = "Run all tests."
+category = "Test"
+workspace = false
+dependencies = [
+  "test::prettier-1",
+  "test::prettier-2",
+  "test::fmt",
+  "test::build",
+  "test::clippy",
+  "test::unit",
+  "test::doc",
+]
+
+[tasks."test::prettier-1"]
+private = true
+workspace = false
+command = "prettier"
+args = ["--check", "*.{graphql,toml,yml,yaml,md}", "!Makefile.toml"]
+
+[tasks."test::prettier-2"]
+private = true
+workspace = false
+command = "prettier"
+args = ["--check", "./!(target)/**/*.{graphql,toml,yml,yaml,md}"]
+
+[tasks."test::fmt"]
+private = true
+workspace = false
+command = "cargo"
+args = ["fmt", "--all", "--", "--check"]
+
+[tasks."test::build"]
+private = true
+workspace = false
+command = "cargo"
+args = ["build", "--all", "--bins", "--examples", "--tests", "--benches", "--all-targets", "--all-features"]
+
+[tasks."test::clippy"]
+private = true
+workspace = false
+command = "cargo"
+args = ["clippy", "--all", "--bins", "--examples", "--tests", "--benches", "--all-targets", "--all-features"]
+
+[tasks."test::unit"]
+private = true
+workspace = false
+command = "cargo"
+args = ["test", "--all", "--bins", "--examples", "--tests", "--benches", "--all-targets", "--all-features"]
+
+[tasks."test::doc"]
+private = true
+workspace = false
+command = "cargo"
+args = ["doc", "--all", "--bins", "--all-features", "--no-deps", "--document-private-items"]
+
 [tasks.wasm-release]
 description = "Build WebAssembly files in release mode for the web-client crate."
 category = "Build"
