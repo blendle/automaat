@@ -5,6 +5,7 @@ use graphql_client::GraphQLQuery;
 use std::convert::TryFrom;
 use url_serde::SerdeUrl as Url;
 
+pub(crate) use self::fetch_pipeline_details::FetchPipelineDetailsPipelineVariables as PipelineVariable;
 pub(crate) use self::fetch_pipelines::FetchPipelinesPipelines as Pipeline;
 pub(crate) use self::fetch_pipelines::SearchPipelineInput;
 

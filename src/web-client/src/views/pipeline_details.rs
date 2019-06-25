@@ -1,13 +1,13 @@
 use crate::resources::{CreateTaskFromPipeline, PipelineDetails, Task, TaskStatus, TaskStepStatus};
 use crate::utils::{element, element_child, keyboard_event, window};
-use crate::views::SearchBarView;
+use crate::views::{SearchBarView, VariableInputView};
 use comrak::{markdown_to_html, ComrakOptions};
 use futures::prelude::*;
 use std::collections::HashMap;
 use typed_html::{dom::DOMTree, html, text, unsafe_text};
 use wasm_bindgen::{prelude::*, JsCast};
 use wasm_bindgen_futures::spawn_local;
-use web_sys::{Event, HtmlElement, HtmlInputElement};
+use web_sys::{Event, HtmlElement, HtmlInputElement, HtmlSelectElement};
 
 pub(crate) struct PipelineDetailsView;
 
@@ -125,13 +125,24 @@ impl PipelineDetailsView {
         let mut variables = HashMap::default();
 
         if let Some(el) = element("#pipeline-modal #pipeline-details-variables") {
-            let inputs = el.query_selector_all("input").expect("valid selector");
+            let inputs = el
+                .query_selector_all(".pipeline-variable")
+                .expect("valid selector");
 
             (0..(inputs.length())).for_each(|i| {
                 if let Some(input) = inputs.item(i) {
                     if let Some(input) = JsCast::dyn_ref::<HtmlInputElement>(&input) {
+                        match input.type_().as_ref() {
+                            "radio" | "checkbox" if !input.checked() => return,
+                            _ => (),
+                        };
+
                         if let Some(key) = input.get_attribute("data-key") {
                             let _ = variables.insert(key, input.value());
+                        }
+                    } else if let Some(select) = JsCast::dyn_ref::<HtmlSelectElement>(&input) {
+                        if let Some(key) = select.get_attribute("data-key") {
+                            let _ = variables.insert(key, select.value());
                         }
                     }
                 }
@@ -246,34 +257,7 @@ impl PipelineDetailsView {
                           </p>
 
                           <div id="pipeline-details-variables">
-
-                            { variables.iter().map(|var| { html! {
-
-                            <div class="columns is-gapless">
-                              <div class="column is-one-quarter">
-                                <div class="field-label is-normal">
-                                  <label class="label">{ text!("{}", var.key) }</label>
-                                </div>
-                              </div>
-                              <div class="column">
-                                <div class="field">
-                                  <div class="control">
-                                    <input
-                                      class="input"
-                                      type="text"
-                                      data-key={ var.key.as_str() }
-                                      placeholder=""
-                                    />
-                                  </div>
-                                  <p class="help">
-                                    { text!("{}", var.description.as_ref().unwrap_or(&"".to_owned()).as_str()) }
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-
-                            } }) }
-
+                            { variables.iter().map(|variable| { VariableInputView::html(variable) }) }
                           </div>
                         </div>
                       </div>

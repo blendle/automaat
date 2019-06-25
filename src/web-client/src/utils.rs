@@ -1,3 +1,5 @@
+use lazy_static::lazy_static;
+use regex::Regex;
 use wasm_bindgen::JsCast;
 use web_sys::{window as web_window, Document, Element, Event, KeyboardEvent, Window};
 
@@ -53,4 +55,25 @@ fn element_with_console_error(element: Option<Element>, selector: &str) -> Optio
 
 fn console_error(message: &str) {
     web_sys::console::error_1(&message.into());
+}
+
+pub(crate) fn format_id_from_str(string: &str) -> String {
+    lazy_static! {
+        static ref RE: Regex = Regex::new("[^A-z0-9\\-_]").unwrap();
+    }
+
+    RE.replace_all(string, "").into_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_id_from_str() {
+        let invalid = " this is / invalid!";
+        let format = format_id_from_str(invalid);
+
+        assert_eq!(format.as_str(), "thisisinvalid")
+    }
 }
