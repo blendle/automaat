@@ -156,7 +156,7 @@ pub(crate) mod graphql {
 
     use super::*;
     use crate::resources::Pipeline;
-    use juniper::{object, FieldResult, GraphQLInputObject, ID};
+    use juniper::{object, FieldResult, GraphQLInputObject, GraphQLObject, ID};
 
     /// Contains all the data needed to create a new `Variable`.
     #[derive(Debug, Clone, Deserialize, Serialize, GraphQLInputObject)]
@@ -173,11 +173,22 @@ pub(crate) mod graphql {
         /// about to run a pipeline what the intent is of the required variable.
         pub(crate) description: Option<String>,
 
+        /// A set of constraints applied to future values attached to this
+        /// variable.
+        ///
+        /// This object is required, even though all existing constraints are
+        /// optional. This is to keep our options open for whenever we _do_ want
+        /// to add non-optional constraints.
+        pub(crate) constraints: VariableConstraintsInput,
+    }
+
+    #[derive(Debug, Clone, Deserialize, Serialize, GraphQLInputObject)]
+    pub(crate) struct VariableConstraintsInput {
         /// An optional selection constraint.
         ///
         /// A variable value has to match one of the provided selections in
         /// order to be considered a valid variable.
-        pub(crate) selection_constraint: Option<Vec<String>>,
+        pub(crate) selection: Option<Vec<String>>,
     }
 
     /// Contains all the data needed to replace templated step configs.
@@ -185,6 +196,20 @@ pub(crate) mod graphql {
     pub(crate) struct VariableValueInput {
         pub(crate) key: String,
         pub(crate) value: String,
+    }
+
+    /// The set of constraints that apply to a variable value.
+    #[derive(Clone, Debug, Deserialize, Serialize, GraphQLObject)]
+    pub(crate) struct VariableConstraints {
+        /// An (optional) set of value selection constraints for this variable.
+        ///
+        /// If this field returns an array, any `VariableValue` matching the key
+        /// of this variable will need to have its value match one of the
+        /// strings inside this array.
+        ///
+        /// Clients are encouraged to enforce this invariant, for example by
+        /// changing the input field into a select box.
+        pub(crate) selection: Option<Vec<String>>,
     }
 
     #[object(Context = Database)]
@@ -207,18 +232,17 @@ pub(crate) mod graphql {
             self.description.as_ref().map(String::as_ref)
         }
 
-        /// An (optional) set of value constraints for this variable.
+        /// A set of value constraints for this variable.
         ///
-        /// If this field returns an array, any `VariableValue` matching the key
-        /// of this variable will need to have its value match one of the
-        /// strings inside this array.
-        ///
-        /// Clients are encouraged to enforce this invariant, for example by
-        /// changing the input field into a select box.
-        fn selection_constraint() -> Option<Vec<&str>> {
-            self.selection_constraint
-                .as_ref()
-                .map(|v| v.iter().map(String::as_ref).collect())
+        /// This object will always be defined, but it might be empty, if no
+        /// constraints are actually set for this variable.
+        fn constraints() -> VariableConstraints {
+            VariableConstraints {
+                selection: self
+                    .selection_constraint
+                    .as_ref()
+                    .map(|v| v.iter().map(ToOwned::to_owned).collect()),
+            }
         }
 
         /// The pipeline to which the variable belongs.
@@ -255,7 +279,8 @@ impl<'a> From<&'a graphql::CreateVariableInput> for NewVariable<'a> {
         Self::new(
             &input.key,
             input
-                .selection_constraint
+                .constraints
+                .selection
                 .as_ref()
                 .map(|v| v.iter().map(String::as_str).collect()),
             input.description.as_ref().map(String::as_ref),
