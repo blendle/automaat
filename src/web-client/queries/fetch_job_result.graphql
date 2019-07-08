@@ -1,0 +1,16 @@
+query FetchJobResult($id: ID!) {
+  task(id: $id) {
+    id
+    status
+
+    steps {
+      position
+      output
+      status
+    }
+
+    pipeline {
+      id
+    }
+  }
+}

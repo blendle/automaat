@@ -1,0 +1,31 @@
+@import '../../scss/placeholders';
+
+.au-statistic {
+  @extend .level-item;
+
+  text-align: center;
+
+  & > div > p:first-child {
+    @extend .heading;
+
+    @include vendor-prefix('user-select', none);
+  }
+
+  & > div > p:last-child {
+    @extend .title;
+
+    white-space: pre;
+    width: 100px;
+  }
+
+  &[disabled] p {
+    @extend .has-text-grey-light;
+
+    &:last-child {
+      @extend %icon-fixed-size;
+      &::before { content: "\f00d"; } // times
+
+      width: auto !important;
+    }
+  }
+}

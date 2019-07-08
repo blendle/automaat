@@ -3,9 +3,9 @@
 /src/core/
 /src/processors/
 /src/server/
+/src/web-client/target/
 /target/debug/
 /target/release/
-/target/wasm32-unknown-unknown/
 /target/x86_64-unknown-linux-musl/debug/
 /target/x86_64-unknown-linux-musl/release/.fingerprint/
 /target/x86_64-unknown-linux-musl/release/build/

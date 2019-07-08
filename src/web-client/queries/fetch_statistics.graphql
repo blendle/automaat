@@ -1,0 +1,9 @@
+query FetchStatistics {
+  pipelines {
+    id
+  }
+
+  tasks {
+    status
+  }
+}

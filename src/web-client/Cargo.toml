@@ -24,52 +24,77 @@ include = [
 travis-ci = { repository = "blendle/automaat" }
 
 [lib]
+name = "automaat"
 crate-type = ["cdylib"]
 
 [features]
-default = ["console_error_panic_hook"]
+default = ["console"]
+console = ["console_log", "console_error_panic_hook"]
 
 [dependencies]
-chrono = { version = "0.4", default-features = false, features = ["serde"] }
-comrak = { version = "0.6", default-features = false }
 console_error_panic_hook = { version = "0.1", optional = true }
-futures = "0.1"
-graphql_client = { version = "0.8", features = ["web"] }
-lazy_static = "1"
-regex = "1"
-serde = { version = "1", features = ["derive"], default-features = false }
-serde_json = "1"
-url = "1"
-url_serde = "0.2"
-wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
+console_log = { version = "0.1", optional = true }
+dodrio = "0.1"
+futures = { version = "0.1", default-features = false }
+gloo-events = { git = "https://github.com/rustwasm/gloo.git", rev = "1078ca3166b16ea8e19d9d691935e1f0fc23f87a" }
+graphql_client = { version = "0.8", default-features = false, features = [
+  "web"
+] }
+js-sys = "0.3"
+log = { version = "0.4", features = ["release_max_level_off"] }
+serde = { version = "1", default-features = false }
+wasm-bindgen = { version = "0.2", default-features = false, features = [
+  "std",
+  "serde-serialize"
+] }
 wasm-bindgen-futures = "0.3"
 wasm-timer = "0.1"
-wee_alloc = { version = "0.4", features = ["size_classes", "nightly"] }
-
-# waiting for: https://git.io/fjzuv
-# also needed: https://git.io/fj2ZC
-[dependencies.typed-html]
-git = "https://github.com/JeanMertz/typed-html.git"
-rev = "90fcc43cf66aecc54ddfdad54a10cd4196552343"
+wee_alloc = { version = "0.4", default-features = false }
+pulldown-cmark = { version = "0.5", default-features = false }
 
 [dependencies.web-sys]
 version = "0.3"
 features = [
   "Document",
-  "DomTokenList",
-  "Element",
   "Event",
-  "HtmlCollection",
+  "EventTarget",
+  "ProgressEvent",
+  "KeyboardEvent",
+  "FormData",
+  "HtmlFormElement",
+  "HtmlBodyElement",
+  "HashChangeEvent",
   "HtmlElement",
   "HtmlInputElement",
-  "HtmlOptionsCollection",
-  "HtmlSelectElement",
-  "KeyboardEvent",
-  "Node",
+  "MutationObserver",
+  "MutationRecord",
   "NodeList",
+  "MutationObserverInit",
+  "Location",
   "Window",
-  "console",
 ]
 
-[dev-dependencies]
-version-sync = "0.8"
+[patch.crates-io]
+dodrio = { git = "https://github.com/fitzgen/dodrio.git", rev = "40e5adbdacc30a88cac33052ab40c92cee236ab2" }
+
+[profile.release]
+# Disable parallel code generation for optimal optimisations.
+#
+# https://doc.rust-lang.org/cargo/reference/manifest.html
+codegen-units = 1
+# Keep debug symbols for wasm-snip optimisations, will eventually be stripped by wasm-opt.
+#
+# https://docs.rs/wasm-snip
+debug = true
+# Reduce filesize using LLVM's Link Time Optimization.
+#
+# https://llvm.org/docs/LinkTimeOptimization.html
+lto = true
+# Enable most aggressive code size optimizations.
+#
+# https://rustwasm.github.io/book/reference/code-size.html
+opt-level = "z"
+# Remove default panic infrastructure to reduce binart size.
+#
+# https://doc.rust-lang.org/edition-guide/rust-2018/error-handling-and-panics/aborting-on-panic.html
+panic = "abort"

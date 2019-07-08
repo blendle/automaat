@@ -1,5 +1,0 @@
-mutation CreateTaskFromPipeline($task: CreateTaskFromPipelineInput!) {
-  createTaskFromPipeline(task: $task) {
-    id
-  }
-}

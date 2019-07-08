@@ -1,5 +1,3 @@
-cargo-features = ["profile-overrides"]
-
 [workspace]
 members = [
   "src/core",
@@ -12,23 +10,11 @@ members = [
   "src/processors/sql-query",
   "src/processors/string-regex",
   "src/server",
-  "src/web-client",
 ]
+exclude = ["src/web-client"]
 
 [patch.crates-io]
 # waiting for: http://git.io/fjwsN
 json-query = { git = "https://github.com/JeanMertz/json-query", branch = "newline" }
 # waiting for: http://git.io/fjwls
 jq-src = { git = "https://github.com/onelson/jq-src", branch = "master" }
-
-[profile.release]
-# Reduce filesize using LLVM's Link Time Optimization.
-#
-# https://llvm.org/docs/LinkTimeOptimization.html
-lto = true
-
-[profile.release.overrides.automaat-web-client]
-# Enable most aggressive code size optimizations.
-#
-# https://rustwasm.github.io/book/reference/code-size.html
-opt-level = "z"

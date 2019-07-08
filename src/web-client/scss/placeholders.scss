@@ -1,0 +1,42 @@
+// http://git.io/fj6p9
+%span-icon {
+  &,
+  &.is-small,
+  &.is-medium,
+  &.is-large {
+    height: 1.5em;
+    width: 1.5em;
+  }
+
+  &:first-child:not(:last-child) {
+    margin-left: calc(-0.375em - #{$button-border-width});
+    margin-right: 0.1875em;
+  }
+
+  &:last-child:not(:first-child) {
+    margin-left: 0.1875em;
+    margin-right: calc(-0.375em - #{$button-border-width});
+  }
+
+  &:first-child:last-child {
+    margin-left: calc(-0.375em - #{$button-border-width});
+  }
+
+  margin-right: calc(-0.375em - #{$button-border-width});
+}
+
+%icon-fixed-size {
+  font-family: "Font Awesome 5 Free", Sans-Serif;
+  font-style: normal;
+  font-weight: 900;
+  text-align: center;
+  width: 1.25em;
+}
+
+%button-with-icon-first {
+  span:first-child { @extend %span-icon; }
+}
+
+%button-with-icon-last {
+  span:last-child { @extend %span-icon; }
+}

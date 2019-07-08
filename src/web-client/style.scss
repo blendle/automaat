@@ -1,0 +1,44 @@
+// Bulma base imports
+@import 'scss/bulma/utilities/_all';
+@import 'scss/bulma/base/_all';
+
+// Bulma components
+@import 'scss/bulma/components/_level';
+@import 'scss/bulma/components/_modal';
+@import 'scss/bulma/components/_message';
+
+// Bulma elements
+@import 'scss/bulma/elements/_other';
+@import 'scss/bulma/elements/_title';
+@import 'scss/bulma/elements/_button';
+@import 'scss/bulma/elements/_container';
+@import 'scss/bulma/elements/_content';
+
+// Bulma layout
+@import 'scss/bulma/layout/_section';
+
+// Bulma grid
+@import 'scss/bulma/grid/_columns';
+
+// Bulma forms
+@import 'scss/bulma/form/_shared';
+@import 'scss/bulma/form/_tools';
+@import 'scss/bulma/form/_input-textarea';
+@import 'scss/bulma/form/_checkbox-radio';
+@import 'scss/bulma/form/_select';
+
+// Helpers
+@import 'scss/mixins';
+@import 'scss/placeholders';
+
+// Base
+@import 'scss/base';
+
+// Components
+@import 'src/component/header';
+@import 'src/component/statistic';
+@import 'src/component/navbar';
+@import 'src/component/tasks';
+@import 'src/component/task_result';
+@import 'src/component/task_details';
+@import 'src/component/variable';

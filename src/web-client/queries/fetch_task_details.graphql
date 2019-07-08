@@ -1,58 +1,17 @@
 query FetchTaskDetails($id: ID!) {
-  task(id: $id) {
+  pipeline(id: $id) {
     id
     name
     description
-    status
 
-    steps {
-      id
-      name
+    variables {
+      key
+      defaultValue
       description
-      processor {
-        __typename
 
-        ... on GitClone {
-          url
-          username
-          password
-          path
-        }
-
-        ... on PrintOutput {
-          output
-        }
-
-        ... on ShellCommand {
-          command
-          arguments
-          cwd
-          paths
-        }
-
-        ... on RedisCommand {
-          command
-          arguments
-          url
-        }
-
-        ... on StringRegex {
-          input
-          regex
-          mismatchError
-          replace
-        }
+      constraints {
+        selection
       }
-
-      position
-      startedAt
-      finishedAt
-      status
-      output
-    }
-
-    pipeline {
-      id
     }
   }
 }

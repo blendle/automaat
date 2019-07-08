@@ -1,7 +1,0 @@
-query FetchPipelines($search: SearchPipelineInput) {
-  pipelines(search: $search) {
-    id
-    name
-    description
-  }
-}

@@ -1,0 +1,23 @@
+.navbar {
+  @extend .container;
+  @extend .section;
+
+  & > div { @extend .level; }
+
+  & .search {
+    @extend .level-item;
+
+    & input {
+      @extend .input;
+      @extend .is-large;
+      @extend .is-rounded;
+
+      max-width: 480px;
+
+      &:focus {
+        box-shadow: none;
+        outline: none;
+      }
+    }
+  }
+}

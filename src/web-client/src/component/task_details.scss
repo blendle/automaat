@@ -1,0 +1,78 @@
+@import '../../scss/placeholders';
+
+.task-details {
+  @extend .modal;
+  @extend .is-active;
+
+  header {
+    @extend .modal-card-head;
+    @extend .has-text-centered;
+
+    background: #475698;
+    background: linear-gradient(135deg, #475698 0%, #1f2d6e 100%);
+
+    p {
+      @extend .modal-card-title;
+      @extend .has-text-white;
+      @extend .has-text-weight-semibold;
+    }
+  }
+
+  section {
+    @extend .modal-card-body;
+    @extend .has-background-white-ter;
+
+    p { @extend .content; }
+    > div { @extend .container; }
+  }
+
+  > div:first-child { @extend .modal-background; }
+
+  .last-result {
+    @extend .is-centered;
+    @extend .has-text-centered;
+    @extend .is-size-7;
+    @extend .has-text-grey;
+
+    margin-top: 3rem;
+    margin-bottom: -0.75rem;
+    white-space: pre-wrap;
+  }
+
+  .job-response {
+    padding-top: 1.5rem;
+
+    article {
+      @extend .message;
+      > div:first-child { @extend .message-header; }
+
+      > div:last-child {
+        @extend .message-body;
+        @extend .content;
+      }
+    }
+  }
+
+  form {
+    @extend .modal-card;
+
+    overflow: visible;
+  }
+
+  footer {
+    @extend .modal-card-foot;
+    button { @extend .is-medium; }
+
+    .back {
+      @extend %button-with-icon-first;
+      i::before { content: "\f137"; } // chevron-circle-left
+    }
+
+    button[type=submit] {
+      @extend .is-fullwidth;
+      @extend .is-info;
+      @extend %button-with-icon-last;
+      i::before { content: "\f00c"; } // check
+    }
+  }
+}

@@ -1,79 +1,79 @@
-use lazy_static::lazy_static;
-use regex::Regex;
+//! Small utility functions.
 use wasm_bindgen::JsCast;
-use web_sys::{window as web_window, Document, Element, Event, KeyboardEvent, Window};
+use web_sys::Element;
 
-pub(crate) fn set_panic_hook() {
-    // When the `console_error_panic_hook` feature is enabled, we can call the
-    // `set_panic_hook` function at least once during initialization, and then
-    // we will get better error messages if our code ever panics.
-    //
-    // For more details see
-    // https://github.com/rustwasm/console_error_panic_hook#readme
-    #[cfg(feature = "console_error_panic_hook")]
-    console_error_panic_hook::set_once();
+use wasm_bindgen::UnwrapThrowExt;
+
+/// Get the current location hash, if any.
+pub(crate) fn hash() -> Option<String> {
+    window()
+        .location()
+        .hash()
+        .ok()
+        .and_then(|h| if h.is_empty() { None } else { Some(h) })
 }
 
-pub(crate) fn window() -> Window {
-    web_window().expect("global window")
+/// Set the current location hash.
+pub(crate) fn set_hash(hash: &str) {
+    window().location().set_hash(hash).unwrap_throw();
 }
 
-pub(crate) fn document() -> Document {
-    window().document().expect("document object")
+/// Get the top-level window.
+pub(crate) fn window() -> web_sys::Window {
+    web_sys::window().unwrap_throw()
 }
 
-pub(crate) fn element(selector: &str) -> Option<Element> {
-    let element = document().query_selector(selector).expect("valid selector");
-
-    element_with_console_error(element, selector)
+/// Get the top-level document.
+pub(crate) fn document() -> web_sys::Document {
+    window().document().unwrap_throw()
 }
 
-pub(crate) fn element_child(element: &Element, selector: &str) -> Option<Element> {
-    let element = element.query_selector(selector).expect("valid selector");
-
-    element_with_console_error(element, selector)
+/// Find a single element in the document and cast it into the provided type.
+///
+/// # Panic
+///
+/// This function panics under the following circumstances:
+///
+/// * The query selector has an invalid format.
+/// * The queried element does not exist.
+/// * The element is of the wrong type.
+pub(crate) fn element<T>(selector: &str) -> T
+where
+    T: JsCast,
+{
+    document()
+        .query_selector(selector)
+        .unwrap_throw()
+        .unwrap_throw()
+        .unchecked_into::<T>()
 }
 
-pub(crate) fn element_is_active(element: &Element) -> bool {
-    match document().active_element() {
-        None => false,
-        Some(el) => el.id() == element.id(),
-    }
+/// Similar to `element`, except that it returns an optional value.
+///
+/// If the element could not be found, or could not be casted to the provided
+/// type, this function returns `None`, otherwise the `Some` will contain the
+/// requested element type.
+pub(crate) fn try_element<T>(selector: &str) -> Option<T>
+where
+    T: JsCast,
+{
+    document()
+        .query_selector(selector)
+        .unwrap_throw()
+        .and_then(|e| e.dyn_into::<T>().ok())
 }
 
-pub(crate) fn keyboard_event(event: &Event) -> Option<u32> {
-    JsCast::dyn_ref::<KeyboardEvent>(event).map(KeyboardEvent::key_code)
-}
-
-fn element_with_console_error(element: Option<Element>, selector: &str) -> Option<Element> {
-    if element.is_none() {
-        console_error(&format!("could not find element: {}", selector));
-    }
-
+/// Similar to `child`, except that it returns an optional value.
+///
+/// If the element could not be found, or could not be casted to the provided
+/// type, this function returns `None`, otherwise the `Some` will contain the
+/// requested element type.
+pub(crate) fn try_child<T>(element: &Element, selector: &str) -> Option<T>
+where
+    T: JsCast,
+{
     element
-}
-
-fn console_error(message: &str) {
-    web_sys::console::error_1(&message.into());
-}
-
-pub(crate) fn format_id_from_str(string: &str) -> String {
-    lazy_static! {
-        static ref RE: Regex = Regex::new("[^A-z0-9\\-_]").unwrap();
-    }
-
-    RE.replace_all(string, "").into_owned()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_format_id_from_str() {
-        let invalid = " this is / invalid!";
-        let format = format_id_from_str(invalid);
-
-        assert_eq!(format.as_str(), "thisisinvalid")
-    }
+        .query_selector(selector)
+        .unwrap_throw()
+        .and_then(|e| e.dyn_into::<T>().ok())
 }

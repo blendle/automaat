@@ -1,0 +1,43 @@
+.variable {
+  @extend .columns;
+  @extend .is-gapless;
+  > div { @extend .column; }
+
+  &-checkbox label {
+    @extend .checkbox;
+    @extend .is-size-6;
+  }
+
+  &-radio label {
+    @extend .radio;
+    @extend .is-size-6;
+  }
+
+  &-label {
+    @extend .is-one-quarter;
+
+    > div {
+      @extend .field-label;
+      @extend .is-normal;
+      label { @extend .label; }
+    }
+  }
+
+  &-field {
+    @extend .field;
+
+    > div {
+      @extend .control;
+      @extend .is-size-5;
+    }
+
+    p { @extend .help; }
+  }
+
+  &-select {
+    @extend .is-size-6;
+    @extend .select;
+    @extend .is-normal;
+    @extend .is-fullwidth;
+  }
+}

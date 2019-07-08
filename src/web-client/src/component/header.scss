@@ -1,0 +1,13 @@
+.au-header {
+  @extend .level;
+
+  @include mobile {
+    display: none !important;
+  }
+
+  height: 120px;
+
+  .au-logo {
+    @extend .level-item;
+  }
+}
