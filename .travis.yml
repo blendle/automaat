@@ -2,11 +2,9 @@
 language: rust
 dist: xenial
 rust:
-  # automaat-server currently requires nightly due to some of its dependencies.
-  # this will be changed in the near future.
-  # - stable
-  # - beta
-  - nightly-2019-06-25
+  - stable
+  - beta
+  - nightly
 cache:
   directories:
     - $HOME/.cache/sccache
@@ -23,8 +21,8 @@ env:
     - SCCACHE_VERSION=0.2.8
     - CARGO_MAKE_VERSION=0.20.0
 matrix:
-  # allow_failures:
-  #   - rust: nightly
+  allow_failures:
+    - rust: nightly
   fast_finish: true
 install:
   # install sccache for improved build caching

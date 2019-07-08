@@ -35,7 +35,6 @@
 #![warn(variant_size_differences)]
 #![allow(clippy::multiple_crate_versions, missing_doc_code_examples)]
 #![doc(html_root_url = "https://docs.rs/automaat-server/0.1.0")]
-#![feature(proc_macro_hygiene, decl_macro)]
 
 // This is needed for statically linking.
 //
