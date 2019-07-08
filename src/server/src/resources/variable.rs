@@ -44,6 +44,7 @@ pub(crate) struct Variable {
     // as `optional: bool`) in the future.
     pub(crate) selection_constraint: Option<Vec<String>>,
     pub(crate) default_value: Option<String>,
+    pub(crate) example_value: Option<String>,
     pub(crate) pipeline_id: i32,
 }
 
@@ -106,6 +107,7 @@ pub(crate) struct NewVariable<'a> {
     description: Option<&'a str>,
     selection_constraint: Option<Vec<&'a str>>,
     default_value: Option<&'a str>,
+    example_value: Option<&'a str>,
     pipeline_id: Option<i32>,
 }
 
@@ -119,6 +121,7 @@ impl<'a> NewVariable<'a> {
         key: &'a str,
         selection_constraint: Option<Vec<&'a str>>,
         default_value: Option<&'a str>,
+        example_value: Option<&'a str>,
         description: Option<&'a str>,
     ) -> Result<Self, String> {
         if let Some(selection) = &selection_constraint {
@@ -136,6 +139,7 @@ impl<'a> NewVariable<'a> {
             description,
             selection_constraint,
             default_value,
+            example_value,
             pipeline_id: None,
         })
     }
@@ -193,6 +197,14 @@ pub(crate) mod graphql {
         /// An optional default value that can be used by clients to pre-fill
         /// the variable value before running a pipeline.
         pub(crate) default_value: Option<String>,
+
+        /// An optional example value that can be used by the clients to show
+        /// one possible way to use this variable.
+        ///
+        /// This is different from the `default_value` in that it should _not_
+        /// be pre-filled as a value by the clients, but should optionally be
+        /// shown next to the input field as an extra visual aid.
+        pub(crate) example_value: Option<String>,
 
         /// A set of constraints applied to future values attached to this
         /// variable.
@@ -261,6 +273,15 @@ pub(crate) mod graphql {
             self.default_value.as_ref().map(String::as_ref)
         }
 
+        /// An (optional) example value to use as a visual aid in the clients.
+        ///
+        /// This is different from the `default_value` in that it should _not_
+        /// be pre-filled as a value by the clients, but should optionally be
+        /// shown next to the input field as an extra visual aid.
+        fn example_value() -> Option<&str> {
+            self.example_value.as_ref().map(String::as_ref)
+        }
+
         /// A set of value constraints for this variable.
         ///
         /// This object will always be defined, but it might be empty, if no
@@ -315,6 +336,7 @@ impl<'a> TryFrom<&'a graphql::CreateVariableInput> for NewVariable<'a> {
                 .as_ref()
                 .map(|v| v.iter().map(String::as_str).collect()),
             input.default_value.as_ref().map(String::as_ref),
+            input.example_value.as_ref().map(String::as_ref),
             input.description.as_ref().map(String::as_ref),
         )
     }
@@ -340,6 +362,7 @@ mod tests {
             description: None,
             selection_constraint: None,
             default_value: None,
+            example_value: None,
             pipeline_id: 0,
         }
     }
@@ -394,22 +417,24 @@ mod tests {
 
     #[test]
     fn test_new_variable_with_default() {
-        let _ = NewVariable::new("var 1", None, Some("foo"), None).unwrap();
+        let _ = NewVariable::new("var 1", None, Some("foo"), None, None).unwrap();
     }
 
     #[test]
     fn test_new_variable_with_selection_constraint_no_default() {
-        let _ = NewVariable::new("var 1", Some(vec!["foo", "bar"]), None, None).unwrap();
+        let _ = NewVariable::new("var 1", Some(vec!["foo", "bar"]), None, None, None).unwrap();
     }
 
     #[test]
     fn test_new_variable_with_default_matching_selection_constraint() {
-        let _ = NewVariable::new("var 1", Some(vec!["foo", "bar"]), Some("foo"), None).unwrap();
+        let _ =
+            NewVariable::new("var 1", Some(vec!["foo", "bar"]), Some("foo"), None, None).unwrap();
     }
 
     #[test]
     #[should_panic]
     fn test_new_variable_default_not_in_selection_constraint() {
-        let _ = NewVariable::new("var 1", Some(vec!["foo", "bar"]), Some("baz"), None).unwrap();
+        let _ =
+            NewVariable::new("var 1", Some(vec!["foo", "bar"]), Some("baz"), None, None).unwrap();
     }
 }

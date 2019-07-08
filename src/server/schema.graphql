@@ -25,6 +25,7 @@ input CreateVariableInput {
   key: String!
   description: String
   defaultValue: String
+  exampleValue: String
   constraints: VariableConstraintsInput!
 }
 
@@ -253,6 +254,7 @@ type Variable {
   key: String!
   description: String
   defaultValue: String
+  exampleValue: String
   constraints: VariableConstraints!
   pipeline: Pipeline
 }

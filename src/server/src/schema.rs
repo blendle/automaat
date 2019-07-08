@@ -51,6 +51,7 @@ table! {
         description -> Nullable<Text>,
         selection_constraint -> Nullable<Array<Text>>,
         default_value -> Nullable<Text>,
+        example_value -> Nullable<Text>,
         pipeline_id -> Integer,
     }
 }
