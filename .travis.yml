@@ -30,15 +30,20 @@ install:
   # install sccache for improved build caching
   - env RUSTC_WRAPPER= cargo install sccache --version "$SCCACHE_VERSION" || true
 
+  # install build & deploy dependencies
+  - env RUSTC_WRAPPER= cargo install wasm-snip wasm-bindgen-cli || true
+  - curl -L https://git.io/fjiDo | sudo tar -xz --strip 1 -C /usr/local/bin/ && sudo chmod u+x /usr/local/bin/*
+
   # configure rustup
   - echo "$TRAVIS_RUST_VERSION" > rust-toolchain
   - rustup component add rustfmt clippy
+  - rustup target add wasm32-unknown-unknown
   - rustup show
 
   # install nodejs + packages
   - curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -
   - sudo apt-get install -y nodejs
-  - npm install -g prettier prettier-plugin-toml
+  - npm install -g prettier prettier-plugin-toml clean-css-cli sass
 before_script:
   - env RUST_LOG=sccache=error sccache --start-server
   - cargo install cargo-make --version "$CARGO_MAKE_VERSION" || true

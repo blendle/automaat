@@ -100,10 +100,8 @@ args = ["-Oz", "--output", "static/app/automaat_bg.wasm", "static/app/automaat_b
 private = true
 description = "Compile scss source to css."
 category = "Build"
-script = [
-    "#!/usr/bin/env sh",
-    "sass-rs --scss < style.scss > static/css/style.css"
-]
+command = "sass"
+args = ["style.scss", "static/css/style.css"]
 
 [tasks.minify-css]
 private = true
