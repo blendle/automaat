@@ -47,7 +47,7 @@ description = "Build a release Docker container (using the `latest` tag), includ
 category = "Build"
 workspace = false
 dependencies = [
-  "web-client-release",
+  "web-client::release",
   "docker::build-server",
   "docker::build-image-latest"
 ]
@@ -57,10 +57,26 @@ description = "Build a release Docker container (using the tag `v${LATEST_SERVER
 category = "Build"
 workspace = false
 dependencies = [
-  "web-client-release",
+  "web-client::release",
   "docker::build-server",
   "docker::build-image-release"
 ]
+
+[tasks.push-container-latest]
+description = "Push an untagged release Docker container."
+category = "Release"
+workspace = false
+command = "docker"
+args = ["push", "${CONTAINER_DEVELOP_IMG}"]
+dependencies = ["build-container-latest"]
+
+[tasks.push-container-release]
+description = "Push a tagged release Docker."
+category = "Release"
+workspace = false
+command = "docker"
+args = ["push", "${CONTAINER_RELEASE_IMG}"]
+dependencies = ["build-container-release"]
 
 [tasks."web-client::test"]
 description = "Run all tests."

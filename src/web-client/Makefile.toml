@@ -136,6 +136,14 @@ disabled = true
 private = true
 disabled = true
 
+[tasks.push-container-latest]
+private = true
+disabled = true
+
+[tasks.push-container-release]
+private = true
+disabled = true
+
 [tasks.default]
 private = true
 disabled = true
