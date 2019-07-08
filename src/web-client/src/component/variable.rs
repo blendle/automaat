@@ -5,7 +5,7 @@
 //! if the types of values are constraint, etc.).
 
 use crate::model::variable;
-use dodrio::bumpalo::{collections::string::String, Bump};
+use dodrio::bumpalo::{collections::string::String, format, Bump};
 use dodrio::{Node, Render, RenderContext};
 use wasm_bindgen::UnwrapThrowExt;
 
@@ -42,6 +42,24 @@ impl<'a> Variable<'a> {
         };
 
         String::from_str_in(value, bump.into()).into_bump_str()
+    }
+
+    /// Returns the optional placeholder value of a variable.
+    ///
+    /// The placeholder is based on the example value set by the server for this
+    /// variable.
+    ///
+    /// It is only used in the "text input" field type, as that's the only field
+    /// type that allows free-form input, and would thus benefit from an
+    /// example.
+    fn placeholder<'b, B>(&self, bump: B) -> Option<&'b str>
+    where
+        B: Into<&'b Bump>,
+    {
+        match self.variable.example_value() {
+            None => None,
+            Some(value) => Some(format!(in bump.into(), "e.g. \"{}\"", value).into_bump_str()),
+        }
     }
 }
 
@@ -187,13 +205,16 @@ impl<'a, 'b> Views<'b> for Variable<'a> {
         use dodrio::builder::*;
 
         let key = String::from_str_in(self.variable.key(), cx.bump).into_bump_str();
-        let attributes = [
+        let mut attributes = vec![
             attr("type", "text"),
             attr("name", key),
             attr("aria-label", key),
-            attr("placeholder", ""),
             attr("value", self.value(cx.bump)),
         ];
+
+        if let Some(value) = self.placeholder(cx.bump) {
+            attributes.push(attr("placeholder", value))
+        };
 
         div(&cx)
             .child(input(&cx).attributes(attributes).finish())

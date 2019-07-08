@@ -29,6 +29,11 @@ impl<'a> Variable<'a> {
         self.inner.default_value.as_ref().map(String::as_str)
     }
 
+    /// An optional example value set by the server for the variable.
+    pub(crate) fn example_value(&self) -> Option<&str> {
+        self.inner.example_value.as_ref().map(String::as_str)
+    }
+
     /// An optional constraint on the set of values the variable can have.
     pub(crate) fn selection_constraint(&self) -> Option<Vec<&str>> {
         self.inner
