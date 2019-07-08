@@ -1,6 +1,5 @@
-[config.modify_core_tasks]
-private = true
-namespace = "default"
+[config]
+skip_core_tasks = true
 
 [env]
 LATEST_SERVER_TAG = { script = ["git -c 'versionsort.suffix=-' tag --list --sort=-v:refname 'automaat-server-*' | awk -F- '{print $NF}'"] }
@@ -10,7 +9,7 @@ CONTAINER_DEVELOP_IMG = "blendle/automaat:latest"
 
 [tasks.test]
 description = "Run all tests."
-category = "Test"
+category = "Development"
 workspace = false
 dependencies = [
   "test::prettier-1",
@@ -20,7 +19,69 @@ dependencies = [
   "test::clippy",
   "test::unit",
   "test::doc",
+  "web-client::test"
 ]
+
+[tasks.watch]
+description = "Watch for file changes, build the web client and run the server."
+category = "Development"
+workspace = false
+watch = { ignore_pattern = "{tmp/**/*,src/web-client/static/app/**/*,src/web-client/static/css/style.css}" }
+script = [
+  '''
+  cargo make --cwd src/web-client debug && \
+  cargo make run
+  '''
+]
+
+[tasks.run]
+description = "Run the API server."
+category = "Development"
+workspace = false
+env = { "SERVER_ROOT" = "${CARGO_MAKE_WORKING_DIRECTORY}/src/web-client/static", "DATABASE_URL" = "postgres://postgres@localhost", "SERVER_BIND" = "127.0.0.1:4000" }
+command = "cargo"
+args = ["run", "--all-features"]
+
+[tasks.build-container-latest]
+description = "Build a release Docker container (using the `latest` tag), including the server and web-client dependencies."
+category = "Build"
+workspace = false
+dependencies = [
+  "web-client-release",
+  "docker::build-server",
+  "docker::build-image-latest"
+]
+
+[tasks.build-container-release]
+description = "Build a release Docker container (using the tag `v${LATEST_SERVER_TAG}_web-client-v${LATEST_CLIENT_TAG}`), including the server and web-client dependencies."
+category = "Build"
+workspace = false
+dependencies = [
+  "web-client-release",
+  "docker::build-server",
+  "docker::build-image-release"
+]
+
+[tasks."web-client::test"]
+description = "Run all tests."
+category = "Web Client"
+workspace = false
+command = "cargo"
+args = ["make", "--cwd", "src/web-client", "test"]
+
+[tasks."web-client::watch"]
+description = "Watch for file changes and run the debug build task."
+category = "Web Client"
+workspace = false
+command = "cargo"
+args = ["make", "--cwd", "src/web-client", "watch"]
+
+[tasks."web-client::release"]
+description = "Create a production release build of the static files (Wasm + CSS)."
+category = "Web Client"
+workspace = false
+command = "cargo"
+args = ["make", "--cwd", "src/web-client", "release"]
 
 [tasks."test::prettier-1"]
 private = true
@@ -32,7 +93,7 @@ args = ["--check", "*.{graphql,toml,yml,yaml,md}", "!Makefile.toml"]
 private = true
 workspace = false
 command = "prettier"
-args = ["--check", "./!(target)/**/*.{graphql,toml,yml,yaml,md}"]
+args = ["--check", "./!(target)/**/*.{graphql,toml,yml,yaml,md}", "!./src/web-client/Makefile.toml"]
 
 [tasks."test::fmt"]
 private = true
@@ -64,55 +125,6 @@ workspace = false
 command = "cargo"
 args = ["doc", "--all", "--bins", "--all-features", "--no-deps", "--document-private-items"]
 
-[tasks.wasm-release]
-description = "Build WebAssembly files in release mode for the web-client crate."
-category = "Build"
-workspace = false
-command = "wasm-pack"
-args = [
-  "build",
-  "--release",
-  "--target", "web",
-  "--out-dir", "static/app",
-  "--out-name", "automaat",
-  "src/web-client",
-  "--",
-  "--no-default-features",
-]
-
-[tasks.wasm-opt]
-description = "Optimize WebAssembly file for release."
-category = "Build"
-workspace = false
-command = "wasm-opt"
-args = [
-  "-Oz",
-  "--output", "src/web-client/static/app/automaat_bg.wasm",
-  "src/web-client/static/app/automaat_bg.wasm",
-]
-
-[tasks.build-container]
-description = "Build a development Docker container, including the server and web-client dependencies."
-category = "Build"
-workspace = false
-dependencies = [
-  "wasm-release",
-  "wasm-opt",
-  "docker::build-server",
-  "docker::build-image"
-]
-
-[tasks.build-container-release]
-description = "Build a release Docker container, including the server and web-client dependencies."
-category = "Build"
-workspace = false
-dependencies = [
-  "wasm-release",
-  "wasm-opt",
-  "docker::build-server",
-  "docker::build-image-release"
-]
-
 [tasks."docker::build-server"]
 private = true
 workspace = false
@@ -122,11 +134,11 @@ args = [
   "--rm",
   "--volume", "cargo-cache:/root/.cargo/registry",
   "--volume", "${CARGO_MAKE_WORKING_DIRECTORY}:/volume",
-  "clux/muslrust:nightly",
+  "clux/muslrust:stable",
   "cargo", "build", "--bin", "automaat-server", "--release",
 ]
 
-[tasks."docker::build-image"]
+[tasks."docker::build-image-latest"]
 private = true
 workspace = false
 command = "docker"
@@ -137,3 +149,11 @@ private = true
 workspace = false
 command = "docker"
 args = ["build", "--tag", "${CONTAINER_RELEASE_IMG}", "${CARGO_MAKE_WORKING_DIRECTORY}"]
+
+[tasks.default]
+private = true
+disabled = true
+
+[tasks.empty]
+private = true
+disabled = true

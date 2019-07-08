@@ -1,0 +1,145 @@
+extend = "../../Makefile.toml"
+
+[tasks.test]
+dependencies = [
+  "test::fmt",
+  "test::build",
+  "test::clippy",
+  "test::unit",
+  "test::doc",
+]
+
+[tasks.watch]
+clear = true
+description = "Watch for file changes and run the debug build task."
+category = "Development"
+command = "cargo"
+args = ["make", "debug"]
+watch = { ignore_pattern = "static/{app/**/*,css/style.css}" }
+
+[tasks.debug]
+description = "Build a debug build."
+category = "Build"
+dependencies = [
+  "build-debug",
+  "wasm-copy-debug",
+  "wasm-bindgen-debug",
+  "build-css",
+]
+
+[tasks.release]
+description = "Create a production release build of the static files (Wasm + CSS)."
+category = "Build"
+dependencies = [
+  "build-release",
+  "wasm-copy-release",
+  "wasm-snip",
+  "wasm-bindgen-release",
+  "wasm-opt",
+  "build-css",
+  "minify-css",
+]
+
+[tasks.build-debug]
+private = true
+description = "Runs debug build."
+category = "Build"
+command = "cargo"
+args = ["build", "--target", "wasm32-unknown-unknown"]
+
+[tasks.build-release]
+private = true
+description = "Runs release build."
+category = "Build"
+command = "cargo"
+args = ["build", "--release", "--no-default-features", "--target", "wasm32-unknown-unknown"]
+
+[tasks.wasm-copy-debug]
+private = true
+description = "Copy the release Wasm binary to shared path."
+category = "Build"
+command = "cp"
+args = ["target/wasm32-unknown-unknown/debug/automaat.wasm", "target/automaat.wasm"]
+
+[tasks.wasm-copy-release]
+private = true
+description = "Copy the debug Wasm binary to shared path."
+category = "Build"
+command = "cp"
+args = ["target/wasm32-unknown-unknown/release/automaat.wasm", "target/automaat.wasm"]
+
+[tasks.wasm-snip]
+private = true
+description = "Runs wasm-snip utility."
+category = "Build"
+command = "wasm-snip"
+args = ["--snip-rust-panicking-code", "--output", "target/automaat.wasm", "target/automaat.wasm"]
+
+[tasks.wasm-bindgen-debug]
+private = true
+description = "Runs wasm-bindgen utility."
+category = "Build"
+command = "wasm-bindgen"
+args = ["--target", "web", "--debug", "--out-dir", "static/app", "target/automaat.wasm"]
+
+[tasks.wasm-bindgen-release]
+private = true
+description = "Runs wasm-bindgen utility."
+category = "Build"
+command = "wasm-bindgen"
+args = ["--target", "web", "--remove-producers-section", "--remove-name-section", "--no-typescript", "--out-dir", "static/app", "target/automaat.wasm"]
+
+[tasks.wasm-opt]
+private = true
+description = "Optimize WebAssembly file for release."
+category = "Build"
+command = "wasm-opt"
+args = ["-Oz", "--output", "static/app/automaat_bg.wasm", "static/app/automaat_bg.wasm"]
+
+[tasks.build-css]
+private = true
+description = "Compile scss source to css."
+category = "Build"
+script = [
+    "#!/usr/bin/env sh",
+    "sass-rs --scss < style.scss > static/css/style.css"
+]
+
+[tasks.minify-css]
+private = true
+description = "Minify css."
+category = "Build"
+command = "cleancss"
+args = ["-O2", "--output", "static/css/style.css", "static/css/style.css"]
+
+[tasks."web-client::test"]
+private = true
+disabled = true
+
+[tasks."web-client::watch"]
+private = true
+disabled = true
+
+[tasks."web-client::release"]
+private = true
+disabled = true
+
+[tasks.run]
+private = true
+disabled = true
+
+[tasks.build-container-latest]
+private = true
+disabled = true
+
+[tasks.build-container-release]
+private = true
+disabled = true
+
+[tasks.default]
+private = true
+disabled = true
+
+[tasks.empty]
+private = true
+disabled = true
