@@ -50,7 +50,6 @@ wasm-bindgen = { version = "0.2", default-features = false, features = [
 wasm-bindgen-futures = "0.3"
 wasm-timer = "0.1"
 wee_alloc = { version = "0.4", default-features = false }
-pulldown-cmark = { version = "0.5", default-features = false }
 
 [dependencies.web-sys]
 version = "0.3"

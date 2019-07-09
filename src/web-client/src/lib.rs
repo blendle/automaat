@@ -92,7 +92,7 @@ pub fn run() -> Result<(), JsValue> {
     let shortcut: ShortcutService = ShortcutService::default();
     shortcut.listen(vdom.weak());
 
-    parse_raw_markdown();
+    raw_text_to_html();
 
     vdom.forget();
     Ok(())
@@ -102,28 +102,16 @@ pub fn run() -> Result<(), JsValue> {
 /// ([Dodrio]) doesn't support injecting raw HTML into the DOM.
 ///
 /// Instead, this function starts a [`MutationObserver`] to listen for raw
-/// markdown to be inserted into the DOM from tasks, it then converts that
-/// markdown to HTML and swaps the content of the node with the HTML.
+/// HTML to be inserted into the DOM from tasks, it then takes that HTML as raw
+/// text, and inserts it as actual HTML elements into the DOM.
 ///
 /// It happens fast enough (probably within the same render call) that there is
 /// no visual glitch, but if that does turn out to be the case, we can migrate
-/// the markdown into a hidden element, and take the content from there.
-///
-/// One concern is that the markdown parsing library adds about 150 kB (or 50%)
-/// to the WASM binary. One solution would be to allow clients to request
-/// multiple formats of the task result from the GraphQL API, something like:
-///
-/// ```graphql
-/// output {
-///     markdown
-///     html
-/// }
-/// ```
+/// the raw output into a hidden element, and take the content from there.
 ///
 /// [Dordio]: https://github.com/fitzgen/dodrio
 /// [`MutationObserver`]: https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver
-fn parse_raw_markdown() {
-    use pulldown_cmark::{html, Options, Parser};
+fn raw_text_to_html() {
     use web_sys::{HtmlElement, MutationObserver, MutationRecord};
 
     let cb: Closure<dyn FnMut(js_sys::Array, MutationObserver)> =
@@ -153,15 +141,8 @@ fn parse_raw_markdown() {
                 Some(body) => body,
             };
 
-            let md = body.text_content().unwrap_throw();
-            let mut options = Options::empty();
-            options.insert(Options::ENABLE_STRIKETHROUGH);
-            let parser = Parser::new_ext(md.as_str(), options);
-
-            let mut html = String::new();
-            html::push_html(&mut html, parser);
-
-            body.set_inner_html(&html);
+            let raw_html = body.text_content().unwrap_throw();
+            body.set_inner_html(&raw_html);
         }));
 
     let mut options = web_sys::MutationObserverInit::new();

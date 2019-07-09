@@ -323,6 +323,7 @@ impl job::Actions for Controller {
 
                                     let message = step
                                         .output
+                                        .html
                                         .as_ref()
                                         .map_or("unknown error".to_owned(), String::to_owned);
 
