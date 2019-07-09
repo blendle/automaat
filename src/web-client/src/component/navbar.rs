@@ -29,6 +29,11 @@ impl<C> Navbar<C> {
         }
     }
 
+    /// Set the input value of the search bar to the provided string.
+    pub(crate) fn set_search_value(&self, value: &str) {
+        let _ = self.search_node.as_ref().map(|s| s.set_value(value));
+    }
+
     /// Get the input value of the search bar.
     ///
     /// Returns an empty string if the search field DOM node does not exist.
@@ -61,12 +66,20 @@ where
             .attr("aria-label", "search tasks")
             .attr("placeholder", "Search Tasks...")
             .on("input", move |root, vdom, event| {
-                let input = event
+                let value = event
                     .target()
                     .unwrap_throw()
-                    .unchecked_into::<HtmlInputElement>();
+                    .unchecked_into::<HtmlInputElement>()
+                    .value();
 
-                spawn_local(C::search(root, vdom, input.value()));
+                let query = if value.is_empty() {
+                    None
+                } else {
+                    Some(value.as_str())
+                };
+
+                utils::set_location_query("search", query);
+                spawn_local(C::search(root, vdom, value));
             });
 
         let search = div(&cx).attr("class", "search").child(field.finish());

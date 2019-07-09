@@ -50,6 +50,15 @@ where
                             let app = root.unwrap_mut::<App>();
                             let nav = Navbar::<C>::new();
 
+                            // Set the search bar value based on the active
+                            // query string, unless it is already set to a
+                            // non-empty string.
+                            if nav.search_value().is_empty() {
+                                if let Some(value) = utils::get_location_query("search") {
+                                    nav.set_search_value(value.as_str())
+                                }
+                            }
+
                             // Auto-focus the search bar.
                             nav.focus_search();
 

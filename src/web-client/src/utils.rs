@@ -1,8 +1,7 @@
 //! Small utility functions.
-use wasm_bindgen::JsCast;
-use web_sys::Element;
 
-use wasm_bindgen::UnwrapThrowExt;
+use wasm_bindgen::{JsCast, UnwrapThrowExt};
+use web_sys::{Element, Url};
 
 /// Get the current location hash, if any.
 pub(crate) fn hash() -> Option<String> {
@@ -16,6 +15,47 @@ pub(crate) fn hash() -> Option<String> {
 /// Set the current location hash.
 pub(crate) fn set_hash(hash: &str) {
     window().location().set_hash(hash).unwrap_throw();
+}
+
+/// Get the location query string matching the provided name.
+///
+/// Returns `None` if no query string matching the name could be found.
+pub(crate) fn get_location_query(name: &str) -> Option<String> {
+    let href = window().location().href().unwrap_throw();
+    let search = Url::new(&href).unwrap_throw().search_params();
+
+    search.get(name)
+}
+
+/// Set a query string value of the current location.
+///
+/// If the passed-in value is `None`, any active query string matching the
+/// provided name will be removed.
+///
+/// If the value is `Some`, it will override any existing query string value
+/// matching the provided name.
+pub(crate) fn set_location_query(name: &str, value: Option<&str>) {
+    let href = window().location().href().unwrap_throw();
+    let url = Url::new(href.as_str()).unwrap_throw();
+    let search = url.search_params();
+
+    match value {
+        None => search.delete(name),
+        Some(value) => search.set(name, value),
+    };
+
+    let mut string = search.to_string().as_string().unwrap_throw();
+    if !string.is_empty() {
+        string.insert_str(0, "?");
+    }
+
+    url.set_search(string.as_str());
+
+    window()
+        .history()
+        .unwrap_throw()
+        .replace_state_with_url(&"".into(), "", Some(url.href().as_str()))
+        .unwrap_throw();
 }
 
 /// Get the top-level window.
