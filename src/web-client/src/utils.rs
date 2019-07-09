@@ -1,7 +1,9 @@
 //! Small utility functions.
 
+use js_sys::Array;
+use std::collections::HashMap;
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
-use web_sys::{Element, Url};
+use web_sys::{Element, HtmlInputElement, HtmlSelectElement, Url};
 
 /// Get the current location hash, if any.
 pub(crate) fn hash() -> Option<String> {
@@ -15,6 +17,59 @@ pub(crate) fn hash() -> Option<String> {
 /// Set the current location hash.
 pub(crate) fn set_hash(hash: &str) {
     window().location().set_hash(hash).unwrap_throw();
+}
+
+/// Given any element T, try to cast it into an input element type, extract the
+/// `name` and `value` from the input field, and add it as a key/value pair to
+/// the current location query field.
+///
+/// For example, if an input field has a name attribute of "firstName" and the
+/// field contains the value "Bart", the query parameter `firstName=Bart` is
+/// added to the current URL location.
+///
+/// The function returns an error if the passed-in element cannot be casted to
+/// an input element type.
+pub(crate) fn input_to_location_query<T>(element: T) -> Result<(), ()>
+where
+    T: JsCast,
+{
+    let (name, value) = if element.has_type::<HtmlInputElement>() {
+        let el = element.unchecked_into::<HtmlInputElement>();
+        (el.name(), el.value())
+    } else if element.has_type::<HtmlSelectElement>() {
+        let el = element.unchecked_into::<HtmlSelectElement>();
+        (el.name(), el.value())
+    } else {
+        return Err(());
+    };
+
+    let query = if value.is_empty() {
+        None
+    } else {
+        Some(value.as_str())
+    };
+
+    set_location_query(name.as_str(), query);
+    Ok(())
+}
+
+/// Return the location query params as a hashmap.
+///
+/// For example, if the location contains `?hello=world&good=bye`, then the
+/// returned map contains the keys "hello" and "good", with the values "world"
+/// and "bye".
+pub(crate) fn location_query_params() -> HashMap<String, String> {
+    let href = window().location().href().unwrap_throw();
+    let search = Url::new(&href).unwrap_throw().search_params();
+
+    js_sys::try_iter(&search)
+        .unwrap_throw()
+        .unwrap_throw()
+        .map(UnwrapThrowExt::unwrap_throw)
+        .map(|v| Array::from(&v))
+        .map(|v| (v.pop().as_string(), v.pop().as_string()))
+        .map(|(v, k)| (k.unwrap_throw(), v.unwrap_throw()))
+        .collect()
 }
 
 /// Get the location query string matching the provided name.

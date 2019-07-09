@@ -63,22 +63,14 @@ where
 
         let field = input(&cx)
             .attr("type", "text")
+            .attr("name", "search")
             .attr("aria-label", "search tasks")
             .attr("placeholder", "Search Tasks...")
             .on("input", move |root, vdom, event| {
-                let value = event
-                    .target()
-                    .unwrap_throw()
-                    .unchecked_into::<HtmlInputElement>()
-                    .value();
+                let target = event.target().unwrap_throw();
+                let value = target.unchecked_ref::<HtmlInputElement>().value();
 
-                let query = if value.is_empty() {
-                    None
-                } else {
-                    Some(value.as_str())
-                };
-
-                utils::set_location_query("search", query);
+                utils::input_to_location_query(target).unwrap_throw();
                 spawn_local(C::search(root, vdom, value));
             });
 

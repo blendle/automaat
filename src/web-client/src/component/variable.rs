@@ -5,6 +5,7 @@
 //! if the types of values are constraint, etc.).
 
 use crate::model::variable;
+use crate::utils;
 use dodrio::bumpalo::{collections::string::String, format, Bump};
 use dodrio::{Node, Render, RenderContext};
 use wasm_bindgen::UnwrapThrowExt;
@@ -27,17 +28,22 @@ pub(crate) struct Variable<'a> {
 impl<'a> Variable<'a> {
     /// Returns the value of the variable.
     ///
-    /// There are three possible value types returned by this method:
+    /// There are four possible value types returned by this method:
     ///
     /// * A pre-existing value (see `existing_value`).
+    /// * A value set via the location query string.
     /// * The default variable value, as provided by the server.
     /// * An empty string, if no pre-existing or default value exists.
     fn value<'b, B>(&self, bump: B) -> &'b str
     where
         B: Into<&'b Bump>,
     {
+        let value = utils::get_location_query(self.variable.key());
         let value = match self.existing_value {
-            None => self.variable.default_value().unwrap_or(""),
+            None => match value.as_ref() {
+                None => self.variable.default_value().unwrap_or(""),
+                Some(value) => value.as_str(),
+            },
             Some(value) => value,
         };
 
@@ -152,6 +158,10 @@ impl<'a, 'b> Views<'b> for Variable<'a> {
                             .attr("type", "radio")
                             .attr("value", v)
                             .attr("name", key)
+                            .on("click", move |_root, _vdom, event| {
+                                let target = event.target().unwrap_throw();
+                                utils::input_to_location_query(target).unwrap_throw();
+                            })
                             .finish(),
                     )
                     .child(text(" "))
@@ -194,6 +204,10 @@ impl<'a, 'b> Views<'b> for Variable<'a> {
                             .attr("name", key)
                             .attr("aria-label", key)
                             .children(options)
+                            .on("change", move |_root, _vdom, event| {
+                                let target = event.target().unwrap_throw();
+                                utils::input_to_location_query(target).unwrap_throw();
+                            })
                             .finish(),
                     )
                     .finish(),
@@ -216,9 +230,15 @@ impl<'a, 'b> Views<'b> for Variable<'a> {
             attributes.push(attr("placeholder", value))
         };
 
-        div(&cx)
-            .child(input(&cx).attributes(attributes).finish())
-            .finish()
+        let input = input(&cx)
+            .attributes(attributes)
+            .on("input", move |_root, _vdom, event| {
+                let target = event.target().unwrap_throw();
+                utils::input_to_location_query(target).unwrap_throw();
+            })
+            .finish();
+
+        div(&cx).child(input).finish()
     }
 
     fn field(&self, cx: &mut RenderContext<'b>) -> Node<'b> {

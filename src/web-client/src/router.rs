@@ -6,7 +6,7 @@ use crate::component::Navbar;
 use crate::controller::Controller;
 use crate::model::{statistics, task, tasks};
 use crate::utils;
-use dodrio::VdomWeak;
+use dodrio::{RootRender, VdomWeak};
 use futures::prelude::*;
 use std::fmt;
 use std::marker::PhantomData;
@@ -14,14 +14,14 @@ use std::str::FromStr;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::{prelude::*, JsCast};
 use wasm_bindgen_futures::spawn_local;
-use web_sys::HashChangeEvent;
+use web_sys::PopStateEvent;
 
 /// The router of the application.
-pub(crate) struct Router<C = Controller>(Route, PhantomData<C>);
+pub(crate) struct Router<C = Controller>(PhantomData<C>);
 
 impl<C: Clone> Default for Router<C> {
     fn default() -> Self {
-        Self(Route::Home, PhantomData)
+        Self(PhantomData)
     }
 }
 
@@ -33,10 +33,10 @@ where
     pub(crate) fn listen(&self, vdom: VdomWeak) {
         use Route::*;
 
-        // Callback fired whenever the URL's hash fragment changes.
+        // Callback fired whenever the URL changes.
         //
         // Opens task detail views if needed, or performs search queries.
-        let on_hash_change = move |_: HashChangeEvent| {
+        let on_popstate_event = move |_: PopStateEvent| {
             let route = match Route::active() {
                 None => return utils::set_hash(&Home.to_string()),
                 Some(route) => route,
@@ -45,70 +45,98 @@ where
             spawn_local(
                 vdom.with_component({
                     let vdom = vdom.clone();
-                    |root| match route {
-                        Home => {
-                            let app = root.unwrap_mut::<App>();
-                            let nav = Navbar::<C>::new();
-
-                            // Set the search bar value based on the active
-                            // query string, unless it is already set to a
-                            // non-empty string.
-                            if nav.search_value().is_empty() {
-                                if let Some(value) = utils::get_location_query("search") {
-                                    nav.set_search_value(value.as_str())
-                                }
-                            }
-
-                            // Auto-focus the search bar.
-                            nav.focus_search();
-
-                            // Unset the active task when visiting the home
-                            // page.
-                            //
-                            // It is possible to hit this path when you use the
-                            // browser's "back" button to go back from the task
-                            // details view to the homepage.
-                            //
-                            // The "regular" ways of dismissing the details view
-                            // (by using the controller's `close_active_task`
-                            // method) already unloads the active task. In that
-                            // case, this is a no-op.
-                            app.tasks_mut().unwrap_throw().disable_active_task();
-
-                            // Update the `navbar` statistics.
-                            //
-                            // We do not want to block the application on these
-                            // statistics, so we spawn a separate future and
-                            // ignore its output.
-                            spawn_local(C::update_statistics(root, vdom.clone()));
-
-                            // It might be tempting to only trigger the search
-                            // when the page is first loaded, instead of every
-                            // time this route is activated.
-                            //
-                            // Unfortunately, that won't work, because coming in
-                            // via a direct task link will only fetch that task,
-                            // and so without doing an explicit search when
-                            // going back to the home page, you'd only see that
-                            // single task in the search results.
-                            C::search(root, vdom, nav.search_value())
-                        }
-                        Task(id) => C::activate_task(root, vdom, id),
+                    move |root| {
+                        let vdom = vdom.clone();
+                        log::info!("hello from popstate");
+                        Self::handle_route_change(route, root, vdom)
                     }
                 })
                 .map_err(|_| ())
                 .and_then(|fut| fut),
-            )
+            );
         };
 
         // Handle initial page load.
-        on_hash_change(HashChangeEvent::new("hashchange").unwrap_throw());
+        on_popstate_event(PopStateEvent::new("popstate").unwrap_throw());
 
-        let hashchange: Closure<dyn FnMut(_)> = Closure::wrap(Box::new(on_hash_change));
+        // popstate
+        let closure: Closure<dyn FnMut(_)> = Closure::wrap(Box::new(on_popstate_event));
         utils::window()
-            .add_event_listener_with_callback("hashchange", hashchange.as_ref().unchecked_ref())
+            .add_event_listener_with_callback("popstate", closure.as_ref().unchecked_ref())
             .unwrap_throw();
-        hashchange.forget();
+        closure.forget();
+    }
+
+    /// Handle route changes.
+    ///
+    /// This function is called whenever the "popstate" event is triggered,
+    /// which happens when the URL of the browser is changed, either by clicking
+    /// on a URL, or by using the browser UI, such as the "back" button.
+    fn handle_route_change(
+        route: Route,
+        root: &mut dyn RootRender,
+        vdom: VdomWeak,
+    ) -> impl Future<Item = (), Error = ()> {
+        use Route::*;
+
+        match route {
+            Home => {
+                let app = root.unwrap_mut::<App>();
+                let nav = Navbar::<C>::new();
+
+                // Set the search bar value based on the active query string,
+                // unless it is already set to a non-empty string.
+                if nav.search_value().is_empty() {
+                    if let Some(value) = utils::get_location_query("search") {
+                        nav.set_search_value(value.as_str())
+                    }
+                }
+
+                // Remove any unwanted query parameters from the current
+                // location URL.
+                //
+                // This prevents query parameters added while editing a task
+                // form from preserving when returning to the home screen.
+                for (key, _) in utils::location_query_params() {
+                    match key.as_str() {
+                        "search" => continue,
+                        other => utils::set_location_query(other, None),
+                    }
+                }
+
+                // Auto-focus the search bar.
+                nav.focus_search();
+
+                // Unset the active task when visiting the home page.
+                //
+                // It is possible to hit this path when you use the browser's
+                // "back" button to go back from the task details view to the
+                // homepage.
+                //
+                // The "regular" ways of dismissing the details view (by using
+                // the controller's `close_active_task` method) already unloads
+                // the active task. In that case, this is a no-op.
+                app.tasks_mut().unwrap_throw().disable_active_task();
+
+                // Update the `navbar` statistics.
+                //
+                // We do not want to block the application on these statistics,
+                // so we spawn a separate future and ignore its output.
+                spawn_local(C::update_statistics(root, vdom.clone()));
+
+                // It might be tempting to only trigger the search when the page
+                // is first loaded, instead of every time this route is
+                // activated.
+                //
+                // Unfortunately, that won't work, because coming in via a
+                // direct task link will only fetch that task, and so without
+                // doing an explicit search when going back to the home page,
+                // you'd only see that single task in the search results.
+                C::search(root, vdom, nav.search_value())
+            }
+
+            Task(id) => C::activate_task(root, vdom, id),
+        }
     }
 }
 
