@@ -316,8 +316,9 @@ pub(crate) mod graphql {
             self.status
         }
 
-        fn output() -> Option<&str> {
-            self.output.as_ref().map(String::as_ref)
+        /// The output of the step, available in different formats.
+        fn output() -> StepOutput<'_> {
+            StepOutput(self.output.as_ref().map(String::as_ref))
         }
 
         /// The task to which the step belongs.
@@ -339,6 +340,38 @@ pub(crate) mod graphql {
         /// 4. show a global error, and ask the user to retry.
         fn task(context: &Database) -> FieldResult<Option<Task>> {
             self.task(context).map(Some).map_err(Into::into)
+        }
+    }
+
+    /// The output of the step, presented in different formats.
+    #[derive(Clone, Debug, Deserialize, Serialize)]
+    pub(crate) struct StepOutput<'a>(Option<&'a str>);
+
+    #[object]
+    impl<'a> StepOutput<'a> {
+        /// The step output in text format.
+        fn text() -> Option<&str> {
+            self.0
+        }
+
+        /// The step output in HTML format.
+        ///
+        /// The HTML is generated from the text output, parsed as markdown.
+        fn html() -> Option<String> {
+            use pulldown_cmark::{html, Options, Parser};
+
+            match self.0 {
+                None => None,
+                Some(output) => {
+                    let mut options = Options::empty();
+                    options.insert(Options::ENABLE_STRIKETHROUGH);
+                    let parser = Parser::new_ext(output, options);
+                    let mut html = String::new();
+                    html::push_html(&mut html, parser);
+
+                    Some(html)
+                }
+            }
         }
     }
 }

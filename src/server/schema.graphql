@@ -193,6 +193,11 @@ type Step {
   pipeline: Pipeline
 }
 
+type StepOutput {
+  text: String
+  html: String
+}
+
 type StringRegex {
   input: String!
   regex: String!
@@ -234,7 +239,7 @@ type TaskStep {
   startedAt: DateTimeUtc
   finishedAt: DateTimeUtc
   status: TaskStepStatus!
-  output: String
+  output: StepOutput!
   task: Task
 }
 
