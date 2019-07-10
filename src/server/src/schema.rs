@@ -20,7 +20,7 @@ table! {
 }
 
 table! {
-    task_steps (id) {
+    job_steps (id) {
         id -> Integer,
         name -> Text,
         description -> Nullable<Text>,
@@ -28,18 +28,18 @@ table! {
         position -> Integer,
         started_at -> Nullable<Timestamp>,
         finished_at -> Nullable<Timestamp>,
-        status -> crate::resources::TaskStepStatusMapping,
+        status -> crate::resources::JobStepStatusMapping,
         output -> Nullable<Text>,
-        task_id -> Integer,
+        job_id -> Integer,
     }
 }
 
 table! {
-    tasks (id) {
+    jobs (id) {
         id -> Integer,
         name -> Text,
         description -> Nullable<Text>,
-        status -> crate::resources::TaskStatusMapping,
+        status -> crate::resources::JobStatusMapping,
         pipeline_reference -> Nullable<Integer>,
     }
 }
@@ -57,8 +57,8 @@ table! {
 }
 
 joinable!(steps -> pipelines (pipeline_id));
-joinable!(task_steps -> tasks (task_id));
-joinable!(tasks -> pipelines (pipeline_reference));
+joinable!(job_steps -> jobs (job_id));
+joinable!(jobs -> pipelines (pipeline_reference));
 joinable!(variables -> pipelines (pipeline_id));
 
-allow_tables_to_appear_in_same_query!(pipelines, steps, task_steps, tasks, variables);
+allow_tables_to_appear_in_same_query!(pipelines, steps, job_steps, jobs, variables);

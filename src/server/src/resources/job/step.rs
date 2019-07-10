@@ -1,17 +1,17 @@
-//! A [`TaskStep`] is the grouping of a [`Processor`], some identification
+//! A [`JobStep`] is the grouping of a [`Processor`], some identification
 //! details such as a name and description, and the position within a series of
 //! steps.
 //!
-//! It is similar to a [`Step`], except that it is tied to a [`Task`], instead
-//! of a [`Pipeline`]. The difference is that pipelines are pre-defined task
+//! It is similar to a [`Step`], except that it is tied to a [`Job`], instead
+//! of a [`Pipeline`]. The difference is that pipelines are pre-defined job
 //! templates that can be executed. Once a pipeline is executed, it will spin
-//! off a task, with its own steps, and run those steps.
+//! off a job, with its own steps, and run those steps.
 //!
 //! [`Processor`]: crate::Processor
 //! [`Step`]: crate::resources::Step
 
-use crate::resources::{Step, Task, VariableValue};
-use crate::schema::task_steps;
+use crate::resources::{Job, Step, VariableValue};
+use crate::schema::job_steps;
 use crate::Database;
 use crate::Processor;
 use automaat_core::Context;
@@ -23,37 +23,37 @@ use serde::{Deserialize, Serialize};
 use std::convert::{AsRef, TryFrom};
 use std::error;
 
-/// The status of the task step.
+/// The status of the job step.
 #[derive(Clone, Copy, Debug, DbEnum, GraphQLEnum, Serialize, Deserialize)]
-#[PgType = "TaskStepStatus"]
-#[graphql(name = "TaskStepStatus")]
+#[PgType = "JobStepStatus"]
+#[graphql(name = "JobStepStatus")]
 pub enum Status {
-    /// The task step has been created, but is not yet ready to run.
+    /// The job step has been created, but is not yet ready to run.
     Initialized,
 
-    /// The task step is waiting and ready to run.
+    /// The job step is waiting and ready to run.
     Pending,
 
-    /// The task step is currently running and will either fail, or succeed.
+    /// The job step is currently running and will either fail, or succeed.
     Running,
 
-    /// The task step failed to run due to an unforeseen error.
+    /// The job step failed to run due to an unforeseen error.
     Failed,
 
-    /// The task step was cancelled, and will not run anymore.
+    /// The job step was cancelled, and will not run anymore.
     Cancelled,
 
-    /// The task step ran and succeeded.
+    /// The job step ran and succeeded.
     Ok,
 }
 
-/// The model representing a task step stored in the database.
+/// The model representing a job step stored in the database.
 #[derive(
     Clone, Debug, Deserialize, Serialize, AsChangeset, Associations, Identifiable, Queryable,
 )]
-#[belongs_to(Task)]
-#[table_name = "task_steps"]
-pub(crate) struct TaskStep {
+#[belongs_to(Job)]
+#[table_name = "job_steps"]
+pub(crate) struct JobStep {
     pub(crate) id: i32,
     pub(crate) name: String,
     pub(crate) description: Option<String>,
@@ -63,13 +63,13 @@ pub(crate) struct TaskStep {
     pub(crate) finished_at: Option<NaiveDateTime>,
     pub(crate) status: Status,
     pub(crate) output: Option<String>,
-    pub(crate) task_id: i32,
+    pub(crate) job_id: i32,
 }
 
-impl TaskStep {
-    /// Returns the processor object attached to this task step.
+impl JobStep {
+    /// Returns the processor object attached to this job step.
     ///
-    /// Given that tasks are historical entities, and processor object layouts
+    /// Given that jobs are historical entities, and processor object layouts
     /// can change between versions, this method returns an Option enum.
     ///
     /// If `None` is returned, it means the processor data could not be
@@ -78,10 +78,10 @@ impl TaskStep {
         serde_json::from_value(self.processor.clone()).ok()
     }
 
-    pub(crate) fn task(&self, conn: &Database) -> QueryResult<Task> {
-        use crate::schema::tasks::dsl::*;
+    pub(crate) fn job(&self, conn: &Database) -> QueryResult<Job> {
+        use crate::schema::jobs::dsl::*;
 
-        tasks.filter(id.eq(self.task_id)).first(&**conn)
+        jobs.filter(id.eq(self.job_id)).first(&**conn)
     }
 
     pub(crate) fn run(
@@ -97,7 +97,7 @@ impl TaskStep {
 
         let result = match self.processor_with_input_and_context(input, context) {
             Ok(p) => p.run(context),
-            Err(err) => Err(format!("task processor cannot be deserialized: {}", err).into()),
+            Err(err) => Err(format!("job processor cannot be deserialized: {}", err).into()),
         };
 
         match result {
@@ -156,7 +156,7 @@ impl TaskStep {
         *value = string.into();
     }
 
-    /// Takes the associated task step processor, and swaps the templated
+    /// Takes the associated job step processor, and swaps the templated
     /// variables `{$input}` and `{$workspace}` for the actual values.
     fn processor_with_input_and_context(
         &mut self,
@@ -187,9 +187,9 @@ impl TaskStep {
 
 /// Contains all the details needed to store a step in the database.
 ///
-/// Use [`NewTaskStep::new`] to initialize this struct.
+/// Use [`NewJobStep::new`] to initialize this struct.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub(crate) struct NewTaskStep<'a> {
+pub(crate) struct NewJobStep<'a> {
     name: &'a str,
     description: Option<&'a str>,
     processor: Processor,
@@ -200,7 +200,7 @@ pub(crate) struct NewTaskStep<'a> {
     status: Status,
 }
 
-impl<'a> NewTaskStep<'a> {
+impl<'a> NewJobStep<'a> {
     /// Initialize a `NewStep` struct, which can be inserted into the
     /// database using the [`NewStep#add_to_pipeline`] method.
     pub(crate) const fn new(
@@ -221,20 +221,20 @@ impl<'a> NewTaskStep<'a> {
         }
     }
 
-    /// Add a step to a [`Task`], by storing it in the database as an
+    /// Add a step to a [`Job`], by storing it in the database as an
     /// association.
     ///
-    /// Requires a reference to a `Task`, in order to create the correct data
+    /// Requires a reference to a `Job`, in order to create the correct data
     /// reference.
     ///
     /// This method can return an error if the database insert failed, or if the
     /// associated processor is invalid.
-    pub(crate) fn add_to_task(
+    pub(crate) fn add_to_job(
         self,
         conn: &Database,
-        task: &Task,
+        job: &Job,
     ) -> Result<(), Box<dyn error::Error>> {
-        use crate::schema::task_steps::dsl::*;
+        use crate::schema::job_steps::dsl::*;
 
         self.processor.validate()?;
 
@@ -247,10 +247,10 @@ impl<'a> NewTaskStep<'a> {
             finished_at.eq(self.finished_at),
             status.eq(Status::Pending),
             output.eq(&self.output),
-            task_id.eq(task.id),
+            job_id.eq(job.id),
         );
 
-        diesel::insert_into(task_steps)
+        diesel::insert_into(job_steps)
             .values(values)
             .execute(&**conn)
             .map(|_| ())
@@ -273,19 +273,19 @@ pub(crate) mod graphql {
     use juniper::{object, FieldResult, ID};
 
     #[object(Context = Database)]
-    impl TaskStep {
-        /// The unique identifier for a specific task step.
+    impl JobStep {
+        /// The unique identifier for a specific job step.
         fn id() -> ID {
             ID::new(self.id.to_string())
         }
 
-        /// A descriptive name of the task step.
+        /// A descriptive name of the job step.
         fn name() -> &str {
             &self.name
         }
 
         /// An (optional) detailed description of the functionality provided by
-        /// this task step.
+        /// this job step.
         ///
         /// A description _might_ be markdown formatted, and should be parsed
         /// accordingly by the client.
@@ -293,13 +293,13 @@ pub(crate) mod graphql {
             self.description.as_ref().map(String::as_ref)
         }
 
-        /// The processor used to run the task step.
+        /// The processor used to run the job step.
         fn processor() -> Option<Processor> {
             self.processor()
         }
 
-        /// The position of the step in a task, compared to other steps in the
-        /// same task. A lower number means the step runs earlier in the task.
+        /// The position of the step in a job, compared to other steps in the
+        /// same job. A lower number means the step runs earlier in the job.
         fn position() -> i32 {
             self.position
         }
@@ -321,13 +321,13 @@ pub(crate) mod graphql {
             StepOutput(self.output.as_ref().map(String::as_ref))
         }
 
-        /// The task to which the step belongs.
+        /// The job to which the step belongs.
         ///
         /// This field can return `null`, but _only_ if a database error
         /// prevents the data from being retrieved.
         ///
-        /// Every task step is _always_ attached to a task, so in normal
-        /// circumstances, this field will always return the relevant task
+        /// Every job step is _always_ attached to a job, so in normal
+        /// circumstances, this field will always return the relevant job
         /// details.
         ///
         /// If a `null` value is returned, it is up to the client to decide the
@@ -338,8 +338,8 @@ pub(crate) mod graphql {
         /// 2. retry the request to try and get the relevant information,
         /// 3. disable parts of the application reliant on the information,
         /// 4. show a global error, and ask the user to retry.
-        fn task(context: &Database) -> FieldResult<Option<Task>> {
-            self.task(context).map(Some).map_err(Into::into)
+        fn job(context: &Database) -> FieldResult<Option<Job>> {
+            self.job(context).map(Some).map_err(Into::into)
         }
     }
 
@@ -376,7 +376,7 @@ pub(crate) mod graphql {
     }
 }
 
-impl<'a> TryFrom<(&'a Step, &[VariableValue])> for NewTaskStep<'a> {
+impl<'a> TryFrom<(&'a Step, &[VariableValue])> for NewJobStep<'a> {
     type Error = serde_json::Error;
 
     fn try_from(

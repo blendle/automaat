@@ -3,6 +3,11 @@ schema {
   mutation: MutationRoot
 }
 
+input CreateJobFromPipelineInput {
+  pipelineId: ID!
+  variables: [VariableValueInput!]!
+}
+
 input CreatePipelineInput {
   name: String!
   description: String
@@ -14,11 +19,6 @@ input CreateStepInput {
   name: String!
   description: String
   processor: ProcessorInput!
-}
-
-input CreateTaskFromPipelineInput {
-  pipelineId: ID!
-  variables: [VariableValueInput!]!
 }
 
 input CreateVariableInput {
@@ -71,6 +71,46 @@ input HttpRequestInput {
   assertStatus: [Int!]
 }
 
+type Job {
+  id: ID!
+  name: String!
+  description: String
+  status: JobStatus!
+  steps: [JobStep!]
+  pipeline: Pipeline
+}
+
+enum JobStatus {
+  SCHEDULED
+  PENDING
+  RUNNING
+  FAILED
+  CANCELLED
+  OK
+}
+
+type JobStep {
+  id: ID!
+  name: String!
+  description: String
+  processor: Processor
+  position: Int!
+  startedAt: DateTimeUtc
+  finishedAt: DateTimeUtc
+  status: JobStepStatus!
+  output: StepOutput!
+  job: Job
+}
+
+enum JobStepStatus {
+  INITIALIZED
+  PENDING
+  RUNNING
+  FAILED
+  CANCELLED
+  OK
+}
+
 type JsonEdit {
   json: String!
   program: String!
@@ -97,7 +137,7 @@ enum Method {
 
 type MutationRoot {
   createPipeline(pipeline: CreatePipelineInput!): Pipeline!
-  createTaskFromPipeline(task: CreateTaskFromPipelineInput!): Task!
+  createJobFromPipeline(job: CreateJobFromPipelineInput!): Job!
 }
 
 type Pipeline {
@@ -138,9 +178,9 @@ input ProcessorInput {
 
 type QueryRoot {
   pipelines(search: SearchPipelineInput): [Pipeline!]!
-  tasks: [Task!]!
+  jobs: [Job!]!
   pipeline(id: ID!): Pipeline
-  task(id: ID!): Task
+  job(id: ID!): Job
 }
 
 type RedisCommand {
@@ -210,46 +250,6 @@ input StringRegexInput {
   regex: String!
   mismatchError: String
   replace: String
-}
-
-type Task {
-  id: ID!
-  name: String!
-  description: String
-  status: TaskStatus!
-  steps: [TaskStep!]
-  pipeline: Pipeline
-}
-
-enum TaskStatus {
-  SCHEDULED
-  PENDING
-  RUNNING
-  FAILED
-  CANCELLED
-  OK
-}
-
-type TaskStep {
-  id: ID!
-  name: String!
-  description: String
-  processor: Processor
-  position: Int!
-  startedAt: DateTimeUtc
-  finishedAt: DateTimeUtc
-  status: TaskStepStatus!
-  output: StepOutput!
-  task: Task
-}
-
-enum TaskStepStatus {
-  INITIALIZED
-  PENDING
-  RUNNING
-  FAILED
-  CANCELLED
-  OK
 }
 
 scalar Url

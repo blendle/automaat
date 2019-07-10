@@ -93,7 +93,7 @@ fn main() -> io::Result<()> {
 
     let conn = Database(pool.get().expect("valid database connection"));
     embedded_migrations::run(&*conn).expect("successful database migration");
-    run_task_runner(conn);
+    run_job_runner(conn);
 
     server(pool)
 }
@@ -151,16 +151,16 @@ fn server(pool: DatabasePool) -> io::Result<()> {
 embed_migrations!();
 
 // Takes a permanent database connection from the connection pool and starts a
-// new thread to continuously poll the database for new tasks that need to run.
+// new thread to continuously poll the database for new jobs that need to run.
 //
 // Currently there is no way for the thread to signal a panic situation to the
-// main thread, so if this thread dies because of a bug, new tasks won't run
+// main thread, so if this thread dies because of a bug, new jobs won't run
 // anymore, but the server will keep running.
 //
 // TODO: split this off into its own crate. Possibly look into using Faktory to
 // schedule jobs.
-fn run_task_runner(conn: Database) {
-    let _ = thread::spawn(move || crate::resources::poll_tasks(&conn));
+fn run_job_runner(conn: Database) {
+    let _ = thread::spawn(move || crate::resources::poll_jobs(&conn));
 }
 
 #[cfg(test)]

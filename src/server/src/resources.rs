@@ -1,6 +1,6 @@
+mod job;
 mod pipeline;
 mod step;
-mod task;
 pub(crate) mod variable;
 
 pub(crate) use pipeline::{
@@ -8,12 +8,12 @@ pub(crate) use pipeline::{
     NewPipeline, Pipeline,
 };
 pub(crate) use step::{graphql::CreateStepInput, NewStep, Step};
-pub(crate) use task::step::{
-    NewTaskStep, Status as TaskStepStatus, StatusMapping as TaskStepStatusMapping, TaskStep,
+pub(crate) use job::step::{
+    JobStep, NewJobStep, Status as JobStepStatus, StatusMapping as JobStepStatusMapping,
 };
-pub(crate) use task::{
-    graphql::CreateTaskFromPipelineInput, poll as poll_tasks, NewTask,
-    StatusMapping as TaskStatusMapping, Task,
+pub(crate) use job::{
+    graphql::CreateJobFromPipelineInput, poll as poll_jobs, Job, NewJob,
+    StatusMapping as JobStatusMapping,
 };
 pub(crate) use variable::{
     graphql::{CreateVariableInput, VariableValueInput},

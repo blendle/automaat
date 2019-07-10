@@ -10,8 +10,8 @@
 //! documentation.
 //!
 //! Once all variable values are provided, the pipeline can be triggered.
-//! Triggering a pipeline results in a [`Task`] being created, which will be
-//! picked up by the task runner immediately.
+//! Triggering a pipeline results in a [`Job`] being created, which will be
+//! picked up by the job runner immediately.
 //!
 //! [`variable`]: crate::resources::variable
 

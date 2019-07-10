@@ -1,6 +1,6 @@
 use crate::resources::{
-    variable, CreatePipelineInput, CreateTaskFromPipelineInput, NewPipeline, NewTask, Pipeline,
-    SearchPipelineInput, Task, VariableValue,
+    variable, CreateJobFromPipelineInput, CreatePipelineInput, Job, NewJob, NewPipeline, Pipeline,
+    SearchPipelineInput, VariableValue,
 };
 use crate::Database;
 use diesel::prelude::*;
@@ -41,11 +41,11 @@ impl QueryRoot {
         query.load(conn).map_err(Into::into)
     }
 
-    /// Return a list of tasks.
-    fn tasks(context: &Database) -> FieldResult<Vec<Task>> {
-        use crate::schema::tasks::dsl::*;
+    /// Return a list of jobs.
+    fn jobs(context: &Database) -> FieldResult<Vec<Job>> {
+        use crate::schema::jobs::dsl::*;
 
-        tasks.order(id).load(&**context).map_err(Into::into)
+        jobs.order(id).load(&**context).map_err(Into::into)
     }
 
     /// Return a single pipeline, based on the pipeline ID.
@@ -62,15 +62,14 @@ impl QueryRoot {
             .map_err(Into::into)
     }
 
-    /// Return a single task, based on the task ID.
+    /// Return a single job, based on the job ID.
     ///
-    /// This query can return `null` if no task is found matching the
+    /// This query can return `null` if no job is found matching the
     /// provided ID.
-    fn task(context: &Database, id: ID) -> FieldResult<Option<Task>> {
-        use crate::schema::tasks::dsl::{id as tid, tasks};
+    fn job(context: &Database, id: ID) -> FieldResult<Option<Job>> {
+        use crate::schema::jobs::dsl::{id as tid, jobs};
 
-        tasks
-            .filter(tid.eq(id.parse::<i32>()?))
+        jobs.filter(tid.eq(id.parse::<i32>()?))
             .first(&**context)
             .optional()
             .map_err(Into::into)
@@ -86,22 +85,22 @@ impl MutationRoot {
             .map_err(Into::into)
     }
 
-    /// Create a task from an existing pipeline ID.
+    /// Create a job from an existing pipeline ID.
     ///
-    /// Once the task is created, it will be scheduled to run immediately.
-    fn createTaskFromPipeline(
+    /// Once the job is created, it will be scheduled to run immediately.
+    fn createJobFromPipeline(
         context: &Database,
-        task: CreateTaskFromPipelineInput,
-    ) -> FieldResult<Task> {
+        job: CreateJobFromPipelineInput,
+    ) -> FieldResult<Job> {
         let pipeline: Pipeline = {
             use crate::schema::pipelines::dsl::*;
 
             pipelines
-                .filter(id.eq(task.pipeline_id.parse::<i32>()?))
+                .filter(id.eq(job.pipeline_id.parse::<i32>()?))
                 .first(&**context)
         }?;
 
-        let variable_values = task
+        let variable_values = job
             .variables
             .into_iter()
             .map(Into::into)
@@ -135,11 +134,11 @@ impl MutationRoot {
             .into());
         }
 
-        let mut new_task = NewTask::create_from_pipeline(context, &pipeline, &variable_values)
+        let mut new_job = NewJob::create_from_pipeline(context, &pipeline, &variable_values)
             .map_err(Into::<FieldError>::into)?;
 
         // TODO: when we have scheduling, we probably want this to be optional,
-        // so that a task isn't always scheduled instantly.
-        new_task.enqueue(context).map_err(Into::into)
+        // so that a job isn't always scheduled instantly.
+        new_job.enqueue(context).map_err(Into::into)
     }
 }
