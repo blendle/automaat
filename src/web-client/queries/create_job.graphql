@@ -1,5 +1,5 @@
-mutation CreateJob($task: CreateTaskFromPipelineInput!) {
-  createTaskFromPipeline(task: $task) {
+mutation CreateJob($job: CreateJobFromTaskInput!) {
+  createJobFromTask(job: $job) {
     id
   }
 }

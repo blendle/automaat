@@ -1,5 +1,5 @@
 query FetchJobResult($id: ID!) {
-  task(id: $id) {
+  job(id: $id) {
     id
     status
 
@@ -11,7 +11,7 @@ query FetchJobResult($id: ID!) {
       }
     }
 
-    pipeline {
+    task {
       id
     }
   }

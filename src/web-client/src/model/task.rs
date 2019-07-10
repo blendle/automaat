@@ -1,9 +1,7 @@
 //! A task that can be run by starting a job.
 
-use crate::graphql::fetch_task_details::{
-    FetchTaskDetailsPipeline, FetchTaskDetailsPipelineVariables,
-};
-use crate::graphql::search_tasks::SearchTasksPipelines;
+use crate::graphql::fetch_task_details::{FetchTaskDetailsTask, FetchTaskDetailsTaskVariables};
+use crate::graphql::search_tasks::SearchTasksTasks;
 use crate::model::{job, variable};
 use dodrio::{RootRender, VdomWeak};
 use futures::future::Future;
@@ -30,7 +28,7 @@ pub(crate) struct Task {
     ///
     /// The values of the object are used internally to expose the relevant
     /// details via the designated methods.
-    details: SearchTasksPipelines,
+    details: SearchTasksTasks,
 
     /// The variable objects returned by the GraphQL server.
     ///
@@ -41,7 +39,7 @@ pub(crate) struct Task {
     /// searching for tasks, but are only returned when the task is opened in
     /// the UI. From that point on, the variables are cached and won't have to
     /// be fetched again during the active application session.
-    variables: Option<Vec<FetchTaskDetailsPipelineVariables>>,
+    variables: Option<Vec<FetchTaskDetailsTaskVariables>>,
 }
 
 impl Task {
@@ -104,8 +102,8 @@ impl Task {
     }
 }
 
-impl From<SearchTasksPipelines> for Task {
-    fn from(details: SearchTasksPipelines) -> Self {
+impl From<SearchTasksTasks> for Task {
+    fn from(details: SearchTasksTasks) -> Self {
         Self {
             details,
             active_job_idx: None,
@@ -115,9 +113,9 @@ impl From<SearchTasksPipelines> for Task {
     }
 }
 
-impl From<FetchTaskDetailsPipeline> for Task {
-    fn from(input: FetchTaskDetailsPipeline) -> Self {
-        let details = SearchTasksPipelines {
+impl From<FetchTaskDetailsTask> for Task {
+    fn from(input: FetchTaskDetailsTask) -> Self {
+        let details = SearchTasksTasks {
             id: input.id.clone(),
             name: input.name.clone(),
             description: input.description.clone(),

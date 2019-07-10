@@ -24,11 +24,11 @@ impl tasks::Actions for Controller {
         vdom: VdomWeak,
         query: String,
     ) -> Box<dyn Future<Item = (), Error = ()> + 'static> {
-        use crate::graphql::search_tasks::{SearchPipelineInput, Variables};
+        use crate::graphql::search_tasks::{SearchTaskInput, Variables};
         use crate::graphql::SearchTasks;
 
         let variables = Variables {
-            search: Some(SearchPipelineInput {
+            search: Some(SearchTaskInput {
                 name: Some(query.clone()),
                 description: Some(query),
             }),
@@ -51,7 +51,7 @@ impl tasks::Actions for Controller {
                 response
                     .ok()
                     .and_then(|r| r.data)
-                    .map(|d| d.pipelines)
+                    .map(|d| d.tasks)
                     .ok_or(())
             })
             .and_then(move |search_results| {
@@ -128,7 +128,7 @@ impl task::Actions for Controller {
                 response
                     .ok()
                     .and_then(|r| r.data)
-                    .and_then(|d| d.pipeline)
+                    .and_then(|d| d.task)
                     .map(Into::into)
                     .ok_or(())
             })
@@ -166,8 +166,8 @@ impl task::Actions for Controller {
         let mut job = job::Job::default();
         job.variable_values = variables.clone();
 
-        let input = CreateTaskFromPipelineInput {
-            pipeline_id: id.to_string(),
+        let input = CreateJobFromTaskInput {
+            task_id: id.to_string(),
             variables: variables
                 .into_iter()
                 .filter_map(|(key, value)| {
@@ -183,13 +183,13 @@ impl task::Actions for Controller {
         let lock = app.cloned_tasks();
         let fut = app
             .client
-            .request(CreateJob, Variables { task: input })
+            .request(CreateJob, Variables { job: input })
             .map_err(|err| vec![err.to_string()])
             .and_then(|response| {
                 if let Some(err) = response.errors {
                     future::err(err.iter().map(|e| e.message.to_owned()).collect())
                 } else if let Some(data) = response.data {
-                    future::ok(job::RemoteId::new(data.create_task_from_pipeline.id))
+                    future::ok(job::RemoteId::new(data.create_job_from_task.id))
                 } else {
                     future::err(vec![])
                 }
@@ -283,7 +283,7 @@ impl job::Actions for Controller {
                     if let Some(err) = response.errors {
                         Err(err.iter().map(|e| e.message.to_owned()).collect())
                     } else if let Some(data) = response.data {
-                        match data.task {
+                        match data.job {
                             None => Err(vec!["no job data returned".to_owned()]),
                             Some(job) => Ok(job),
                         }
@@ -294,10 +294,10 @@ impl job::Actions for Controller {
 
                 // Update the job status, including the possible error or
                 // success message, based on the server response.
-                let update_state = move |result: Result<FetchJobResultTask, Vec<String>>| {
+                let update_state = move |result: Result<FetchJobResultJob, Vec<String>>| {
                     use job::Status;
-                    use TaskStatus::*;
-                    use TaskStepStatus as S;
+                    use JobStatus::*;
+                    use JobStepStatus as S;
 
                     let mut tasks = lock.try_borrow_mut().unwrap_throw();
                     let task = tasks.get_mut(&task_id).unwrap_throw();
@@ -314,12 +314,13 @@ impl job::Actions for Controller {
                             FAILED | CANCELLED | OK => match result.steps.as_ref() {
                                 None => Status::Succeeded("task has no steps".to_owned()),
                                 Some(s) => {
-                                    let step =
-                                        match s.iter().find(|s| s.status == TaskStepStatus::FAILED)
-                                        {
-                                            Some(s) => s,
-                                            None => s.last().unwrap_throw(),
-                                        };
+                                    let step = match s
+                                        .iter()
+                                        .find(|s| s.status == JobStepStatus::FAILED)
+                                    {
+                                        Some(s) => s,
+                                        None => s.last().unwrap_throw(),
+                                    };
 
                                     let message = step
                                         .output
@@ -406,7 +407,7 @@ impl statistics::Actions for Controller {
                 response
                     .ok()
                     .and_then(|r| r.data)
-                    .map(|d| (d.pipelines, d.tasks))
+                    .map(|d| (d.tasks, d.jobs))
                     .ok_or(())
             })
             .and_then(move |(tasks, jobs)| {
@@ -414,12 +415,12 @@ impl statistics::Actions for Controller {
 
                 let running = jobs
                     .iter()
-                    .filter(|j| j.status == TaskStatus::RUNNING)
+                    .filter(|j| j.status == JobStatus::RUNNING)
                     .count();
 
                 let failed = jobs
                     .iter()
-                    .filter(|j| j.status == TaskStatus::FAILED)
+                    .filter(|j| j.status == JobStatus::FAILED)
                     .count();
 
                 stats.update(tasks.len(), running, failed);

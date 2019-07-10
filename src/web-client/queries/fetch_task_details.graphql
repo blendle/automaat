@@ -1,5 +1,5 @@
 query FetchTaskDetails($id: ID!) {
-  pipeline(id: $id) {
+  task(id: $id) {
     id
     name
     description

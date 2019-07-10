@@ -1,12 +1,12 @@
 //! A variable belonging to a task.
 
-use crate::graphql::fetch_task_details::FetchTaskDetailsPipelineVariables;
+use crate::graphql::fetch_task_details::FetchTaskDetailsTaskVariables;
 
 /// The variable model.
 #[derive(Clone, Debug)]
 pub(crate) struct Variable<'a> {
     /// The inner representation of the task variable, as defined by the server.
-    inner: &'a FetchTaskDetailsPipelineVariables,
+    inner: &'a FetchTaskDetailsTaskVariables,
 }
 
 impl<'a> Variable<'a> {
@@ -44,8 +44,8 @@ impl<'a> Variable<'a> {
     }
 }
 
-impl<'a> From<&'a FetchTaskDetailsPipelineVariables> for Variable<'a> {
-    fn from(inner: &'a FetchTaskDetailsPipelineVariables) -> Self {
+impl<'a> From<&'a FetchTaskDetailsTaskVariables> for Variable<'a> {
+    fn from(inner: &'a FetchTaskDetailsTaskVariables) -> Self {
         Self { inner }
     }
 }

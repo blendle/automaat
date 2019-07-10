@@ -1,7 +1,7 @@
 //! A collection of cached tasks, and any application session specific
 //! configuration tied to that list (such as visibility filters, etc...).
 
-use crate::graphql::search_tasks::SearchTasksPipelines;
+use crate::graphql::search_tasks::SearchTasksTasks;
 use crate::model::task::{Id, Task};
 use dodrio::{RootRender, VdomWeak};
 use futures::future::Future;
@@ -129,8 +129,8 @@ impl<'a> IntoIterator for &'a Tasks {
     }
 }
 
-impl From<Vec<SearchTasksPipelines>> for Tasks {
-    fn from(results: Vec<SearchTasksPipelines>) -> Self {
+impl From<Vec<SearchTasksTasks>> for Tasks {
+    fn from(results: Vec<SearchTasksTasks>) -> Self {
         let mut tasks = HashMap::new();
         let vec: Vec<Task> = results.into_iter().map(Into::into).collect();
 
