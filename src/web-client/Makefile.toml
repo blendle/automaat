@@ -15,7 +15,7 @@ description = "Watch for file changes and run the debug build task."
 category = "Development"
 command = "cargo"
 args = ["make", "debug"]
-watch = { ignore_pattern = "static/{app/**/*,css/style.css}" }
+watch = { ignore_pattern = "static/{app/**/*,css/style.css,css/style.css.map}" }
 
 [tasks.debug]
 description = "Build a debug build."
@@ -93,8 +93,9 @@ args = ["--target", "web", "--remove-producers-section", "--remove-name-section"
 private = true
 description = "Optimize WebAssembly file for release."
 category = "Build"
-command = "wasm-opt"
-args = ["-Oz", "--output", "static/app/automaat_bg.wasm", "static/app/automaat_bg.wasm"]
+script = [
+  "wasm-opt -Oz --output static/app/automaat_bg.wasm static/app/automaat_bg.wasm || true"
+]
 
 [tasks.build-css]
 private = true

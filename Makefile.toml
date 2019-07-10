@@ -26,7 +26,7 @@ dependencies = [
 description = "Watch for file changes, build the web client and run the server."
 category = "Development"
 workspace = false
-watch = { ignore_pattern = "{tmp/**/*,src/web-client/static/app/**/*,src/web-client/static/css/style.css}" }
+watch = { ignore_pattern = "{tmp/**/*,src/web-client/static/app/**/*,src/web-client/static/css/style.css,src/web-client/static/css/style.css.map}" }
 script = [
   '''
   cargo make --cwd src/web-client debug && \
@@ -38,7 +38,7 @@ script = [
 description = "Run the API server."
 category = "Development"
 workspace = false
-env = { "SERVER_ROOT" = "${CARGO_MAKE_WORKING_DIRECTORY}/src/web-client/static", "DATABASE_URL" = "postgres://postgres@localhost", "SERVER_BIND" = "127.0.0.1:4000" }
+env = { "SERVER_ROOT" = "${CARGO_MAKE_WORKING_DIRECTORY}/src/web-client/static", "DATABASE_URL" = "postgres://postgres@localhost" }
 command = "cargo"
 args = ["run", "--all-features"]
 
