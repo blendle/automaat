@@ -73,7 +73,7 @@ macro_rules! impl_processors {
         // ```
         //
         // This is done to create a strongly-typed union-like input object when
-        // creating pipelines using processor configurations.
+        // creating tasks using processor configurations.
         impl TryFrom<Input> for Processor {
             type Error = String;
 

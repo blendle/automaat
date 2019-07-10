@@ -3,22 +3,22 @@ schema {
   mutation: MutationRoot
 }
 
-input CreateJobFromPipelineInput {
-  pipelineId: ID!
+input CreateJobFromTaskInput {
+  taskId: ID!
   variables: [VariableValueInput!]!
-}
-
-input CreatePipelineInput {
-  name: String!
-  description: String
-  variables: [CreateVariableInput!]!
-  steps: [CreateStepInput!]!
 }
 
 input CreateStepInput {
   name: String!
   description: String
   processor: ProcessorInput!
+}
+
+input CreateTaskInput {
+  name: String!
+  description: String
+  variables: [CreateVariableInput!]!
+  steps: [CreateStepInput!]!
 }
 
 input CreateVariableInput {
@@ -77,7 +77,7 @@ type Job {
   description: String
   status: JobStatus!
   steps: [JobStep!]
-  pipeline: Pipeline
+  task: Task
 }
 
 enum JobStatus {
@@ -136,16 +136,8 @@ enum Method {
 }
 
 type MutationRoot {
-  createPipeline(pipeline: CreatePipelineInput!): Pipeline!
-  createJobFromPipeline(job: CreateJobFromPipelineInput!): Job!
-}
-
-type Pipeline {
-  id: ID!
-  name: String!
-  description: String
-  variables: [Variable!]
-  steps: [Step!]
+  createTask(task: CreateTaskInput!): Task!
+  createJobFromTask(job: CreateJobFromTaskInput!): Job!
 }
 
 type PrintOutput {
@@ -177,9 +169,9 @@ input ProcessorInput {
 }
 
 type QueryRoot {
-  pipelines(search: SearchPipelineInput): [Pipeline!]!
+  tasks(search: SearchTaskInput): [Task!]!
   jobs: [Job!]!
-  pipeline(id: ID!): Pipeline
+  task(id: ID!): Task
   job(id: ID!): Job
 }
 
@@ -195,7 +187,7 @@ input RedisCommandInput {
   url: Url!
 }
 
-input SearchPipelineInput {
+input SearchTaskInput {
   name: String
   description: String
 }
@@ -230,7 +222,7 @@ type Step {
   description: String
   processor: Processor!
   position: Int!
-  pipeline: Pipeline
+  task: Task
 }
 
 type StepOutput {
@@ -252,6 +244,14 @@ input StringRegexInput {
   replace: String
 }
 
+type Task {
+  id: ID!
+  name: String!
+  description: String
+  variables: [Variable!]
+  steps: [Step!]
+}
+
 scalar Url
 
 type Variable {
@@ -261,7 +261,7 @@ type Variable {
   defaultValue: String
   exampleValue: String
   constraints: VariableConstraints!
-  pipeline: Pipeline
+  task: Task
 }
 
 type VariableConstraints {

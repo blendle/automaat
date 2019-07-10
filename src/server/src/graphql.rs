@@ -1,6 +1,6 @@
 use crate::resources::{
-    variable, CreateJobFromPipelineInput, CreatePipelineInput, Job, NewJob, NewPipeline, Pipeline,
-    SearchPipelineInput, VariableValue,
+    variable, CreateJobFromTaskInput, CreateTaskInput, Job, NewJob, NewTask, SearchTaskInput, Task,
+    VariableValue,
 };
 use crate::Database;
 use diesel::prelude::*;
@@ -15,18 +15,15 @@ pub(crate) struct MutationRoot;
 
 #[object(Context = Database)]
 impl QueryRoot {
-    /// Return a list of pipelines.
+    /// Return a list of tasks.
     ///
-    /// You can optionally filter the returned set of pipelines by providing the
-    /// `SearchPipelineInput` value.
-    fn pipelines(
-        context: &Database,
-        search: Option<SearchPipelineInput>,
-    ) -> FieldResult<Vec<Pipeline>> {
-        use crate::schema::pipelines::dsl::*;
+    /// You can optionally filter the returned set of tasks by providing the
+    /// `SearchTaskInput` value.
+    fn tasks(context: &Database, search: Option<SearchTaskInput>) -> FieldResult<Vec<Task>> {
+        use crate::schema::tasks::dsl::*;
         let conn = &context.0;
 
-        let mut query = pipelines.order(id).into_boxed();
+        let mut query = tasks.order(id).into_boxed();
 
         if let Some(search) = &search {
             if let Some(search_name) = &search.name {
@@ -48,14 +45,14 @@ impl QueryRoot {
         jobs.order(id).load(&**context).map_err(Into::into)
     }
 
-    /// Return a single pipeline, based on the pipeline ID.
+    /// Return a single task, based on the task ID.
     ///
-    /// This query can return `null` if no pipeline is found matching the
+    /// This query can return `null` if no task is found matching the
     /// provided ID.
-    fn pipeline(context: &Database, id: ID) -> FieldResult<Option<Pipeline>> {
-        use crate::schema::pipelines::dsl::{id as pid, pipelines};
+    fn task(context: &Database, id: ID) -> FieldResult<Option<Task>> {
+        use crate::schema::tasks::dsl::{id as pid, tasks};
 
-        pipelines
+        tasks
             .filter(pid.eq(id.parse::<i32>()?))
             .first(&**context)
             .optional()
@@ -78,25 +75,22 @@ impl QueryRoot {
 
 #[object(Context = Database)]
 impl MutationRoot {
-    /// Create a new pipeline.
-    fn createPipeline(context: &Database, pipeline: CreatePipelineInput) -> FieldResult<Pipeline> {
-        NewPipeline::try_from(&pipeline)?
+    /// Create a new task.
+    fn createTask(context: &Database, task: CreateTaskInput) -> FieldResult<Task> {
+        NewTask::try_from(&task)?
             .create(context)
             .map_err(Into::into)
     }
 
-    /// Create a job from an existing pipeline ID.
+    /// Create a job from an existing task ID.
     ///
     /// Once the job is created, it will be scheduled to run immediately.
-    fn createJobFromPipeline(
-        context: &Database,
-        job: CreateJobFromPipelineInput,
-    ) -> FieldResult<Job> {
-        let pipeline: Pipeline = {
-            use crate::schema::pipelines::dsl::*;
+    fn createJobFromTask(context: &Database, job: CreateJobFromTaskInput) -> FieldResult<Job> {
+        let task: Task = {
+            use crate::schema::tasks::dsl::*;
 
-            pipelines
-                .filter(id.eq(job.pipeline_id.parse::<i32>()?))
+            tasks
+                .filter(id.eq(job.task_id.parse::<i32>()?))
                 .first(&**context)
         }?;
 
@@ -106,16 +100,16 @@ impl MutationRoot {
             .map(Into::into)
             .collect::<Vec<VariableValue>>();
 
-        let pipeline_variables = pipeline.variables(context)?;
+        let task_variables = task.variables(context)?;
 
-        if let Some(variables) = variable::missing_values(&pipeline_variables, &variable_values) {
+        if let Some(variables) = variable::missing_values(&task_variables, &variable_values) {
             let keys = variables.iter().map(|v| v.key.as_str()).collect::<Vec<_>>();
 
             return Err(format!(r#"missing variable values: {}"#, keys.join(", ")).into());
         }
 
         if let Some(results) =
-            variable::selection_constraint_mismatch(&pipeline_variables, &variable_values)
+            variable::selection_constraint_mismatch(&task_variables, &variable_values)
         {
             let variable = results[0].0;
             let value = results[0].1;
@@ -134,7 +128,7 @@ impl MutationRoot {
             .into());
         }
 
-        let mut new_job = NewJob::create_from_pipeline(context, &pipeline, &variable_values)
+        let mut new_job = NewJob::create_from_task(context, &task, &variable_values)
             .map_err(Into::<FieldError>::into)?;
 
         // TODO: when we have scheduling, we probably want this to be optional,

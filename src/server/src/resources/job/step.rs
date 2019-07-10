@@ -3,8 +3,8 @@
 //! steps.
 //!
 //! It is similar to a [`Step`], except that it is tied to a [`Job`], instead
-//! of a [`Pipeline`]. The difference is that pipelines are pre-defined job
-//! templates that can be executed. Once a pipeline is executed, it will spin
+//! of a [`Task`]. The difference is that tasks are pre-defined job
+//! templates that can be executed. Once a task is executed, it will spin
 //! off a job, with its own steps, and run those steps.
 //!
 //! [`Processor`]: crate::Processor
@@ -202,7 +202,7 @@ pub(crate) struct NewJobStep<'a> {
 
 impl<'a> NewJobStep<'a> {
     /// Initialize a `NewStep` struct, which can be inserted into the
-    /// database using the [`NewStep#add_to_pipeline`] method.
+    /// database using the [`NewStep#add_to_task`] method.
     pub(crate) const fn new(
         name: &'a str,
         description: Option<&'a str>,

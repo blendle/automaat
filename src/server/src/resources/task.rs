@@ -1,22 +1,22 @@
-//! A [`Pipeline`] is a collection of [`Step`]s and [`Variable`]s, wrapped in
+//! A [`Task`] is a collection of [`Step`]s and [`Variable`]s, wrapped in
 //! one package, containing a descriptive name and optional documentation.
 //!
-//! Each pipeline is pre-configured for usage, after which it can be
+//! Each task is pre-configured for usage, after which it can be
 //! "triggered".
 //!
-//! Before a pipeline can be triggered, the person wanting to trigger the
-//! pipeline needs to first provide all values for the variables attached to the
-//! pipeline. For more details on variables, see the [`variable`] module
+//! Before a task can be triggered, the person wanting to trigger the
+//! task needs to first provide all values for the variables attached to the
+//! task. For more details on variables, see the [`variable`] module
 //! documentation.
 //!
-//! Once all variable values are provided, the pipeline can be triggered.
-//! Triggering a pipeline results in a [`Job`] being created, which will be
+//! Once all variable values are provided, the task can be triggered.
+//! Triggering a task results in a [`Job`] being created, which will be
 //! picked up by the job runner immediately.
 //!
 //! [`variable`]: crate::resources::variable
 
 use crate::resources::{NewStep, NewVariable, Step, Variable};
-use crate::schema::pipelines;
+use crate::schema::tasks;
 use crate::Database;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -24,15 +24,15 @@ use std::convert::{TryFrom, TryInto};
 use std::error;
 
 #[derive(Clone, Debug, Deserialize, Serialize, Identifiable, Queryable)]
-#[table_name = "pipelines"]
-/// The model representing a pipeline stored in the database.
-pub(crate) struct Pipeline {
+#[table_name = "tasks"]
+/// The model representing a task stored in the database.
+pub(crate) struct Task {
     pub(crate) id: i32,
     pub(crate) name: String,
     pub(crate) description: Option<String>,
 }
 
-impl Pipeline {
+impl Task {
     pub(crate) fn steps(&self, conn: &Database) -> QueryResult<Vec<Step>> {
         use crate::schema::steps::dsl::*;
 
@@ -48,20 +48,20 @@ impl Pipeline {
     }
 }
 
-/// Contains all the details needed to store a pipeline in the database.
+/// Contains all the details needed to store a task in the database.
 ///
-/// Use [`NewPipeline::new`] to initialize this struct.
+/// Use [`NewTask::new`] to initialize this struct.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub(crate) struct NewPipeline<'a> {
+pub(crate) struct NewTask<'a> {
     name: &'a str,
     description: Option<&'a str>,
     variables: Vec<NewVariable<'a>>,
     steps: Vec<NewStep<'a>>,
 }
 
-impl<'a> NewPipeline<'a> {
-    /// Initialize a `NewPipeline` struct, which can be inserted into the
-    /// database using the [`NewPipeline#create`] method.
+impl<'a> NewTask<'a> {
+    /// Initialize a `NewTask` struct, which can be inserted into the
+    /// database using the [`NewTask#create`] method.
     pub(crate) fn new(name: &'a str, description: Option<&'a str>) -> Self {
         Self {
             name,
@@ -71,51 +71,51 @@ impl<'a> NewPipeline<'a> {
         }
     }
 
-    /// Attach variables to this pipeline.
+    /// Attach variables to this task.
     ///
-    /// `NewPipeline` takes ownership of the variables, but you are required to
-    /// call [`NewPipeline#create`] to persist the pipeline and its variables.
+    /// `NewTask` takes ownership of the variables, but you are required to
+    /// call [`NewTask#create`] to persist the task and its variables.
     ///
     /// Can be called multiple times to append more variables.
     pub(crate) fn with_variables(&mut self, mut variables: Vec<NewVariable<'a>>) {
         self.variables.append(&mut variables)
     }
 
-    /// Attach steps to this pipeline.
+    /// Attach steps to this task.
     ///
-    /// `NewPipeline` takes ownership of the steps, but you are required to
-    /// call [`NewPipeline#create`] to persist the pipeline and its steps.
+    /// `NewTask` takes ownership of the steps, but you are required to
+    /// call [`NewTask#create`] to persist the task and its steps.
     ///
     /// Can be called multiple times to append more steps.
     pub(crate) fn with_steps(&mut self, mut steps: Vec<NewStep<'a>>) {
         self.steps.append(&mut steps)
     }
 
-    /// Persist the pipeline and any attached variables and steps into the
+    /// Persist the task and any attached variables and steps into the
     /// database.
     ///
     /// Persisting the data happens within a transaction that is rolled back if
     /// any data fails to persist.
-    pub(crate) fn create(self, conn: &Database) -> Result<Pipeline, Box<dyn error::Error>> {
+    pub(crate) fn create(self, conn: &Database) -> Result<Task, Box<dyn error::Error>> {
         conn.transaction(|| {
-            use crate::schema::pipelines::dsl::*;
+            use crate::schema::tasks::dsl::*;
 
             // waiting on https://github.com/diesel-rs/diesel/issues/860
             let values = (name.eq(&self.name), description.eq(&self.description));
 
-            let pipeline = diesel::insert_into(pipelines)
+            let task = diesel::insert_into(tasks)
                 .values(values)
                 .get_result(&**conn)?;
 
             self.variables
                 .into_iter()
-                .try_for_each(|variable| variable.add_to_pipeline(conn, &pipeline))?;
+                .try_for_each(|variable| variable.add_to_task(conn, &task))?;
 
             self.steps
                 .into_iter()
-                .try_for_each(|step| step.add_to_pipeline(conn, &pipeline))?;
+                .try_for_each(|step| step.add_to_task(conn, &task))?;
 
-            Ok(pipeline)
+            Ok(task)
         })
     }
 }
@@ -135,10 +135,10 @@ pub(crate) mod graphql {
     use crate::resources::{CreateStepInput, CreateVariableInput, Step, Variable};
     use juniper::{object, FieldResult, GraphQLInputObject, ID};
 
-    /// Contains all the data needed to create a new `Pipeline`.
+    /// Contains all the data needed to create a new `Task`.
     #[derive(Clone, Debug, Deserialize, Serialize, GraphQLInputObject)]
-    pub(crate) struct CreatePipelineInput {
-        /// The name of the pipeline.
+    pub(crate) struct CreateTaskInput {
+        /// The name of the task.
         ///
         /// This name is required to be unique.
         ///
@@ -147,23 +147,23 @@ pub(crate) mod graphql {
         /// user.
         pub(crate) name: String,
 
-        /// An optional description of the pipeline.
+        /// An optional description of the task.
         ///
         /// While the description is optional, it is best-practice to provide
-        /// relevant information so that the user of the pipeline knows what to
-        /// expect when triggering a pipeline.
+        /// relevant information so that the user of the task knows what to
+        /// expect when triggering a task.
         pub(crate) description: Option<String>,
 
-        /// An optional list of variables attached to the pipeline.
+        /// An optional list of variables attached to the task.
         ///
-        /// Without variables, a pipeline can only be used for one single
+        /// Without variables, a task can only be used for one single
         /// purpose. While this might sometimes be desirable, using variables
-        /// provides more flexibility for the user that triggers the pipeline.
+        /// provides more flexibility for the user that triggers the task.
         pub(crate) variables: Vec<CreateVariableInput>,
 
-        /// A list of steps attached to the pipeline.
+        /// A list of steps attached to the task.
         ///
-        /// Not providing any steps will result in a pipeline that has no
+        /// Not providing any steps will result in a task that has no
         /// functionality.
         ///
         /// Not providing any steps will be considered an error in a future
@@ -171,10 +171,10 @@ pub(crate) mod graphql {
         pub(crate) steps: Vec<CreateStepInput>,
     }
 
-    /// An optional set of input details to filter a set of `Pipeline`s, based
+    /// An optional set of input details to filter a set of `Task`s, based
     /// on either their name, or description.
     #[derive(Clone, Debug, Deserialize, Serialize, GraphQLInputObject)]
-    pub(crate) struct SearchPipelineInput {
+    pub(crate) struct SearchTaskInput {
         /// An optional `name` filter.
         ///
         /// Providing this value will do a `%name%` `ILIKE` query.
@@ -193,19 +193,19 @@ pub(crate) mod graphql {
     }
 
     #[object(Context = Database)]
-    impl Pipeline {
-        /// The unique identifier for a specific pipeline.
+    impl Task {
+        /// The unique identifier for a specific task.
         fn id() -> ID {
             ID::new(self.id.to_string())
         }
 
-        /// A unique and descriptive name of the pipeline.
+        /// A unique and descriptive name of the task.
         fn name() -> &str {
             self.name.as_ref()
         }
 
         /// An (optional) detailed description of the functionality provided by
-        /// this pipeline.
+        /// this task.
         ///
         /// A description _might_ be markdown formatted, and should be parsed
         /// accordingly by the client.
@@ -213,12 +213,12 @@ pub(crate) mod graphql {
             self.description.as_ref().map(String::as_ref)
         }
 
-        /// The variables belonging to the pipeline.
+        /// The variables belonging to the task.
         ///
         /// This field can return `null`, but _only_ if a database error
         /// prevents the data from being retrieved.
         ///
-        /// If no variables are attached to a pipeline, an empty array is
+        /// If no variables are attached to a task, an empty array is
         /// returned instead.
         ///
         /// If a `null` value is returned, it is up to the client to decide the
@@ -233,12 +233,12 @@ pub(crate) mod graphql {
             self.variables(context).map(Some).map_err(Into::into)
         }
 
-        /// The steps belonging to the pipeline.
+        /// The steps belonging to the task.
         ///
         /// This field can return `null`, but _only_ if a database error
         /// prevents the data from being retrieved.
         ///
-        /// If no steps are attached to a pipeline, an empty array is returned
+        /// If no steps are attached to a task, an empty array is returned
         /// instead.
         ///
         /// If a `null` value is returned, it is up to the client to decide the
@@ -256,11 +256,11 @@ pub(crate) mod graphql {
 
 }
 
-impl<'a> TryFrom<&'a graphql::CreatePipelineInput> for NewPipeline<'a> {
+impl<'a> TryFrom<&'a graphql::CreateTaskInput> for NewTask<'a> {
     type Error = String;
 
-    fn try_from(input: &'a graphql::CreatePipelineInput) -> Result<Self, Self::Error> {
-        let mut pipeline = Self::new(&input.name, input.description.as_ref().map(String::as_ref));
+    fn try_from(input: &'a graphql::CreateTaskInput) -> Result<Self, Self::Error> {
+        let mut task = Self::new(&input.name, input.description.as_ref().map(String::as_ref));
 
         let variables = input
             .variables
@@ -275,8 +275,8 @@ impl<'a> TryFrom<&'a graphql::CreatePipelineInput> for NewPipeline<'a> {
             .map(TryInto::try_into)
             .collect::<Result<Vec<_>, Self::Error>>()?;
 
-        pipeline.with_variables(variables);
-        pipeline.with_steps(steps);
-        Ok(pipeline)
+        task.with_variables(variables);
+        task.with_steps(steps);
+        Ok(task)
     }
 }

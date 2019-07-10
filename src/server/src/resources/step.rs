@@ -1,11 +1,11 @@
 //! A [`Step`] is the grouping of a [`Processor`], some identification details
 //! such as a name and description, and the position within a series of steps.
 //!
-//! A step is one "action" in a series of [`Pipeline`] steps.
+//! A step is one "action" in a series of [`Task`] steps.
 //!
 //! [`Processor`]: crate::Processor
 
-use crate::resources::Pipeline;
+use crate::resources::Task;
 use crate::schema::steps;
 use crate::{Database, Processor};
 use diesel::prelude::*;
@@ -15,7 +15,7 @@ use std::error::Error;
 
 /// The model representing a step stored in the database.
 #[derive(Clone, Debug, Deserialize, Serialize, Associations, Identifiable, Queryable)]
-#[belongs_to(Pipeline)]
+#[belongs_to(Task)]
 #[table_name = "steps"]
 pub(crate) struct Step {
     pub(crate) id: i32,
@@ -23,7 +23,7 @@ pub(crate) struct Step {
     pub(crate) description: Option<String>,
     pub(crate) processor: serde_json::Value,
     pub(crate) position: i32,
-    pub(crate) pipeline_id: i32,
+    pub(crate) task_id: i32,
 }
 
 impl Step {
@@ -31,10 +31,10 @@ impl Step {
         serde_json::from_value(self.processor.clone())
     }
 
-    pub(crate) fn pipeline(&self, conn: &Database) -> QueryResult<Pipeline> {
-        use crate::schema::pipelines::dsl::*;
+    pub(crate) fn task(&self, conn: &Database) -> QueryResult<Task> {
+        use crate::schema::tasks::dsl::*;
 
-        pipelines.filter(id.eq(self.pipeline_id)).first(&**conn)
+        tasks.filter(id.eq(self.task_id)).first(&**conn)
     }
 }
 
@@ -51,7 +51,7 @@ pub(crate) struct NewStep<'a> {
 
 impl<'a> NewStep<'a> {
     /// Initialize a `NewStep` struct, which can be inserted into the
-    /// database using the [`NewStep#add_to_pipeline`] method.
+    /// database using the [`NewStep#add_to_task`] method.
     pub(crate) const fn new(
         name: &'a str,
         description: Option<&'a str>,
@@ -66,19 +66,15 @@ impl<'a> NewStep<'a> {
         }
     }
 
-    /// Add a step to a [`Pipeline`], by storing it in the database as an
+    /// Add a step to a [`Task`], by storing it in the database as an
     /// association.
     ///
-    /// Requires a reference to a Pipeline, in order to create the correct data
+    /// Requires a reference to a Task, in order to create the correct data
     /// reference.
     ///
     /// This method can return an error if the database insert failed, or if the
     /// step processor cannot be serialized.
-    pub(crate) fn add_to_pipeline(
-        self,
-        conn: &Database,
-        pipeline: &Pipeline,
-    ) -> Result<(), Box<dyn Error>> {
+    pub(crate) fn add_to_task(self, conn: &Database, task: &Task) -> Result<(), Box<dyn Error>> {
         use crate::schema::steps::dsl::*;
 
         let values = (
@@ -86,7 +82,7 @@ impl<'a> NewStep<'a> {
             description.eq(&self.description),
             processor.eq(serde_json::to_value(self.processor)?),
             position.eq(self.position),
-            pipeline_id.eq(pipeline.id),
+            task_id.eq(task.id),
         );
 
         diesel::insert_into(steps)
@@ -126,7 +122,7 @@ pub(crate) mod graphql {
         ///
         /// While the description is optional, it is best-practice to provide
         /// relevant information so that the user knows what to expect when
-        /// adding a step to a pipeline.
+        /// adding a step to a task.
         pub(crate) description: Option<String>,
 
         /// The processor used by this step to perform the required action.
@@ -171,20 +167,20 @@ pub(crate) mod graphql {
             self.processor().map_err(Into::into)
         }
 
-        /// The position of the step in a pipeline, compared to other steps in
-        /// the same pipeline. A lower number means the step runs earlier in the
-        /// pipeline.
+        /// The position of the step in a task, compared to other steps in
+        /// the same task. A lower number means the step runs earlier in the
+        /// task.
         fn position() -> i32 {
             self.position
         }
 
-        /// The pipeline to which the step belongs.
+        /// The task to which the step belongs.
         ///
         /// This field can return `null`, but _only_ if a database error
         /// prevents the data from being retrieved.
         ///
-        /// Every step is _always_ attached to a pipeline, so in normal
-        /// circumstances, this field will always return the relevant pipeline
+        /// Every step is _always_ attached to a task, so in normal
+        /// circumstances, this field will always return the relevant task
         /// details.
         ///
         /// If a `null` value is returned, it is up to the client to decide the
@@ -195,8 +191,8 @@ pub(crate) mod graphql {
         /// 2. retry the request to try and get the relevant information,
         /// 3. disable parts of the application reliant on the information,
         /// 4. show a global error, and ask the user to retry.
-        fn pipeline(context: &Database) -> FieldResult<Option<Pipeline>> {
-            self.pipeline(context).map(Some).map_err(Into::into)
+        fn task(context: &Database) -> FieldResult<Option<Task>> {
+            self.task(context).map(Some).map_err(Into::into)
         }
     }
 }

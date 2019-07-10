@@ -1,11 +1,11 @@
 //! A [`Job`] is a job that is scheduled to be ran, or already ran in the past.
 //!
-//! It is similar to a [`Pipeline`], but a pipeline represents a set of steps
+//! It is similar to a [`Task`], but a task represents a set of steps
 //! that _can be ran_ by providing a set of variables, whereas a job represents
 //! a set of steps that are _ready to run_ and have their variables swapped for
 //! real values.
 
-use crate::resources::{JobStep, JobStepStatus, NewJobStep, Pipeline, VariableValue};
+use crate::resources::{JobStep, JobStepStatus, NewJobStep, Task, VariableValue};
 use crate::schema::jobs;
 use crate::Database;
 use automaat_core::Context;
@@ -61,7 +61,7 @@ impl From<JobStepStatus> for Status {
 #[derive(
     Clone, Debug, Deserialize, Serialize, AsChangeset, Associations, Identifiable, Queryable,
 )]
-#[belongs_to(Pipeline, foreign_key = "pipeline_reference")]
+#[belongs_to(Task, foreign_key = "task_reference")]
 #[table_name = "jobs"]
 /// The model representing a job stored in the database.
 pub(crate) struct Job {
@@ -70,13 +70,13 @@ pub(crate) struct Job {
     pub(crate) description: Option<String>,
     pub(crate) status: Status,
 
-    // This is a weak reference, meaning that pipelines can be removed, which
-    // breaks the link between a job and the pipeline it was created from. This
-    // is acceptable, it just means the UI can't link back to the pipeline.
+    // This is a weak reference, meaning that tasks can be removed, which
+    // breaks the link between a job and the task it was created from. This
+    // is acceptable, it just means the UI can't link back to the task.
     //
     // Similarly, a job can be created separately from a reference, in which
     // case this field is also `None`.
-    pub(crate) pipeline_reference: Option<i32>,
+    pub(crate) task_reference: Option<i32>,
 }
 
 impl Job {
@@ -90,15 +90,12 @@ impl Job {
         self.save_changes(&**conn)
     }
 
-    pub(crate) fn pipeline(&self, conn: &Database) -> QueryResult<Option<Pipeline>> {
-        use crate::schema::pipelines::dsl::*;
+    pub(crate) fn task(&self, conn: &Database) -> QueryResult<Option<Task>> {
+        use crate::schema::tasks::dsl::*;
 
-        match self.pipeline_reference {
+        match self.task_reference {
             None => Ok(None),
-            Some(pipeline_id) => pipelines
-                .filter(id.eq(pipeline_id))
-                .first(&**conn)
-                .optional(),
+            Some(task_id) => tasks.filter(id.eq(task_id)).first(&**conn).optional(),
         }
     }
 
@@ -185,7 +182,7 @@ pub(crate) struct NewJob<'a> {
     name: &'a str,
     description: Option<&'a str>,
     status: Status,
-    pipeline_reference: Option<i32>,
+    task_reference: Option<i32>,
     steps: Vec<NewJobStep<'a>>,
 }
 
@@ -197,41 +194,38 @@ impl<'a> NewJob<'a> {
             name,
             description,
             status: Status::Pending,
-            pipeline_reference: None,
+            task_reference: None,
             steps: vec![],
         }
     }
 
-    pub(crate) fn create_from_pipeline(
+    pub(crate) fn create_from_task(
         conn: &Database,
-        pipeline: &'a Pipeline,
+        task: &'a Task,
         variable_values: &[VariableValue],
     ) -> Result<Job, Box<dyn error::Error>> {
-        let steps = pipeline.steps(conn)?;
+        let steps = task.steps(conn)?;
         let steps = steps
             .iter()
             .map(|s| (s, variable_values))
             .map(TryInto::try_into)
             .collect::<Result<_, _>>()?;
 
-        let mut job = Self::new(
-            &pipeline.name,
-            pipeline.description.as_ref().map(String::as_ref),
-        );
-        job.with_pipeline_reference(pipeline.id);
+        let mut job = Self::new(&task.name, task.description.as_ref().map(String::as_ref));
+        job.with_task_reference(task.id);
         job.with_steps(steps);
 
         job.create(conn).map_err(Into::into)
     }
 
-    pub(crate) fn with_pipeline_reference(&mut self, pipeline_id: i32) {
-        self.pipeline_reference = Some(pipeline_id)
+    pub(crate) fn with_task_reference(&mut self, task_id: i32) {
+        self.task_reference = Some(task_id)
     }
 
-    /// Attach zero or more steps to this pipeline.
+    /// Attach zero or more steps to this task.
     ///
-    /// `NewPipeline` takes ownership of the steps, but you are required to
-    /// call [`NewPipeline#create`] to persist the pipeline and its steps.
+    /// `NewTask` takes ownership of the steps, but you are required to
+    /// call [`NewTask#create`] to persist the task and its steps.
     ///
     /// Can be called multiple times to append more steps.
     fn with_steps(&mut self, mut steps: Vec<NewJobStep<'a>>) {
@@ -244,26 +238,26 @@ impl<'a> NewJob<'a> {
 
         let mut job_name = self.name.to_owned();
 
-        // Job names are unique over (name, pipeline_reference). If a reference
+        // Job names are unique over (name, task_reference). If a reference
         // exists, we add a count (such as "My Job #3") to the name of the
-        // pipeline, based on the total amount of jobs for that pipeline ID.
+        // task, based on the total amount of jobs for that task ID.
         //
-        // Non-pipeline based jobs will simply return an error if their name
+        // Non-task based jobs will simply return an error if their name
         // isn't unique.
-        if let Some(pipeline_id) = self.pipeline_reference {
+        if let Some(task_id) = self.task_reference {
             use crate::schema::jobs::dsl::*;
 
-            let pipeline: Pipeline = {
-                use crate::schema::pipelines::dsl::*;
-                pipelines.filter(id.eq(pipeline_id)).first(&**conn)
+            let task: Task = {
+                use crate::schema::tasks::dsl::*;
+                tasks.filter(id.eq(task_id)).first(&**conn)
             }?;
 
             let total = jobs
-                .filter(pipeline_reference.eq(pipeline_id))
+                .filter(task_reference.eq(task_id))
                 .count()
                 .get_result::<i64>(&**conn)?;
 
-            job_name = format!("{} #{}", pipeline.name, total + 1);
+            job_name = format!("{} #{}", task.name, total + 1);
         }
 
         conn.transaction(|| {
@@ -272,7 +266,7 @@ impl<'a> NewJob<'a> {
                 name.eq(&job_name),
                 description.eq(&self.description),
                 status.eq(self.status),
-                pipeline_reference.eq(self.pipeline_reference),
+                task_reference.eq(self.task_reference),
             );
 
             let job = diesel::insert_into(jobs)
@@ -303,19 +297,19 @@ pub(crate) mod graphql {
     use crate::resources::VariableValueInput;
     use juniper::{object, FieldResult, GraphQLInputObject, ID};
 
-    /// Contains all the data needed to create a new `Pipeline`.
+    /// Contains all the data needed to create a new `Task`.
     #[derive(Clone, Debug, Deserialize, Serialize, GraphQLInputObject)]
-    pub(crate) struct CreateJobFromPipelineInput {
-        /// The `id` of the pipeline from which to create this job.
+    pub(crate) struct CreateJobFromTaskInput {
+        /// The `id` of the task from which to create this job.
         #[serde(with = "juniper_serde")]
-        pub(crate) pipeline_id: ID,
+        pub(crate) task_id: ID,
 
-        /// An optional list of variable values required by the pipeline.
+        /// An optional list of variable values required by the task.
         ///
         /// Note that the eventual `Job` object has no concept of "variables".
         ///
         /// The provided variable values are used in-place of the templated
-        /// variables in the pipeline before creating the job. The final step
+        /// variables in the task before creating the job. The final step
         /// configs are then stored alongside the job in the database.
         pub(crate) variables: Vec<VariableValueInput>,
     }
@@ -374,22 +368,22 @@ pub(crate) mod graphql {
             self.steps(context).map(Some).map_err(Into::into)
         }
 
-        /// The pipeline from which the job was created.
+        /// The task from which the job was created.
         ///
         /// A job _can_ but _does not have to_ be created from an existing
-        /// pipeline.
+        /// task.
         ///
-        /// If a job was created from a pipeline, this will return the relevant
-        /// `Pipeline` object.
+        /// If a job was created from a task, this will return the relevant
+        /// `Task` object.
         ///
-        /// If a job was not created from an existing pipeline, this will
+        /// If a job was not created from an existing task, this will
         /// return `null`.
         ///
-        /// If a pipeline has been removed since the job was created, this will
+        /// If a task has been removed since the job was created, this will
         /// also return `null`.
         ///
         /// There is also the possibility of this job being created from a
-        /// pipeline, but the database lookup to fetch the pipeline details
+        /// task, but the database lookup to fetch the task details
         /// failed. In this case, the value will also be `null`, but an `errors`
         /// object will be attached to the result, explaining the problem that
         /// occurred.
@@ -402,8 +396,8 @@ pub(crate) mod graphql {
         /// 2. retry the request to try and get the relevant information,
         /// 3. disable parts of the application reliant on the information,
         /// 4. show a global error, and ask the user to retry.
-        fn pipeline(context: &Database) -> FieldResult<Option<Pipeline>> {
-            self.pipeline(context).map_err(Into::into)
+        fn task(context: &Database) -> FieldResult<Option<Task>> {
+            self.task(context).map_err(Into::into)
         }
     }
 }

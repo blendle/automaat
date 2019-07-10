@@ -1,29 +1,29 @@
-//! Each [`Pipeline`] contains zero or more variables.
+//! Each [`Task`] contains zero or more variables.
 //!
 //! A `Variable` is a "runtime" (or "deferred") value that is substituted for
 //! any templated [`Processor`] configuration values.
 //!
-//! The person building the pipeline is required to provide all the
-//! configuration values needed to run the steps added to the pipeline, but can
+//! The person building the task is required to provide all the
+//! configuration values needed to run the steps added to the task, but can
 //! choose to use a template value, such as `{country code}` instead of an
-//! actual value, and attach a `country code` variable to the pipeline.
+//! actual value, and attach a `country code` variable to the task.
 //!
-//! Now, whenever a pipeline is triggered, the person triggering the pipeline is
+//! Now, whenever a task is triggered, the person triggering the task is
 //! required to provide the actual value for the `country code` variable.
 //!
-//! This way, pipeline creators can create pipelines that are as easy to use as
-//! possible, while still allowing a pipeline to be used for multiple purposes
-//! (in this example, the pipeline could be configured to print the weather
+//! This way, task creators can create tasks that are as easy to use as
+//! possible, while still allowing a task to be used for multiple purposes
+//! (in this example, the task could be configured to print the weather
 //! forecast for the specified country).
 //!
 //! An optional description can be provided to give some extra context for the
-//! person triggering the pipeline. For example:
+//! person triggering the task. For example:
 //!
 //! > A `ISO 3166-1 alpha-2` formatted country code.
 //!
 //! [`Processor`]: crate::Processor
 
-use crate::resources::Pipeline;
+use crate::resources::Task;
 use crate::schema::variables;
 use crate::Database;
 use diesel::prelude::*;
@@ -33,7 +33,7 @@ use std::convert::{AsRef, TryFrom};
 /// The model representing a variable definition (without an actual value)
 /// stored in the database.
 #[derive(Clone, Debug, Deserialize, Serialize, Associations, Identifiable, Queryable)]
-#[belongs_to(Pipeline)]
+#[belongs_to(Task)]
 #[table_name = "variables"]
 pub(crate) struct Variable {
     pub(crate) id: i32,
@@ -45,7 +45,7 @@ pub(crate) struct Variable {
     pub(crate) selection_constraint: Option<Vec<String>>,
     pub(crate) default_value: Option<String>,
     pub(crate) example_value: Option<String>,
-    pub(crate) pipeline_id: i32,
+    pub(crate) task_id: i32,
 }
 
 /// The actual runtime variable value belonging to a value (matched by key).
@@ -108,12 +108,12 @@ pub(crate) struct NewVariable<'a> {
     selection_constraint: Option<Vec<&'a str>>,
     default_value: Option<&'a str>,
     example_value: Option<&'a str>,
-    pipeline_id: Option<i32>,
+    task_id: Option<i32>,
 }
 
 impl<'a> NewVariable<'a> {
     /// Initialize a `NewVariable` struct, which can be inserted into the
-    /// database using the [`NewVariable#add_to_pipeline`] method.
+    /// database using the [`NewVariable#add_to_task`] method.
     ///
     /// Returns an error if the `default_value` value is provided, but is not a
     /// subset of the values provided in `selection_constraint`.
@@ -140,22 +140,18 @@ impl<'a> NewVariable<'a> {
             selection_constraint,
             default_value,
             example_value,
-            pipeline_id: None,
+            task_id: None,
         })
     }
 
-    /// Add a variable to a [`Pipeline`], by storing it in the database as an
+    /// Add a variable to a [`Task`], by storing it in the database as an
     /// association.
     ///
-    /// Requires a reference to a Pipeline, in order to create the correct data
+    /// Requires a reference to a Task, in order to create the correct data
     /// reference.
-    pub(crate) fn add_to_pipeline(
-        mut self,
-        conn: &Database,
-        pipeline: &Pipeline,
-    ) -> QueryResult<()> {
+    pub(crate) fn add_to_task(mut self, conn: &Database, task: &Task) -> QueryResult<()> {
         use crate::schema::variables::dsl::*;
-        self.pipeline_id = Some(pipeline.id);
+        self.task_id = Some(task.id);
 
         diesel::insert_into(variables)
             .values(&self)
@@ -176,7 +172,7 @@ pub(crate) mod graphql {
     //! mutation, and type documentation.
 
     use super::*;
-    use crate::resources::Pipeline;
+    use crate::resources::Task;
     use juniper::{object, FieldResult, GraphQLInputObject, GraphQLObject, ID};
 
     /// Contains all the data needed to create a new `Variable`.
@@ -187,15 +183,15 @@ pub(crate) mod graphql {
         /// If a step's string value contains `{server url}`, then setting the
         /// variable's key to `server url` will allow the step value to be
         /// replaced by the eventually provided variable value when triggering a
-        /// pipeline.
+        /// task.
         pub(crate) key: String,
 
         /// An optional description that can be used to explain to a person
-        /// about to run a pipeline what the intent is of the required variable.
+        /// about to run a task what the intent is of the required variable.
         pub(crate) description: Option<String>,
 
         /// An optional default value that can be used by clients to pre-fill
-        /// the variable value before running a pipeline.
+        /// the variable value before running a task.
         pub(crate) default_value: Option<String>,
 
         /// An optional example value that can be used by the clients to show
@@ -295,13 +291,13 @@ pub(crate) mod graphql {
             }
         }
 
-        /// The pipeline to which the variable belongs.
+        /// The task to which the variable belongs.
         ///
         /// This field can return `null`, but _only_ if a database error
         /// prevents the data from being retrieved.
         ///
-        /// Every variable is _always_ attached to a pipeline, so in normal
-        /// circumstances, this field will always return the relevant pipeline
+        /// Every variable is _always_ attached to a task, so in normal
+        /// circumstances, this field will always return the relevant task
         /// details.
         ///
         /// If a `null` value is returned, it is up to the client to decide the
@@ -312,11 +308,11 @@ pub(crate) mod graphql {
         /// 2. retry the request to try and get the relevant information,
         /// 3. disable parts of the application reliant on the information,
         /// 4. show a global error, and ask the user to retry.
-        fn pipeline(context: &Database) -> FieldResult<Option<Pipeline>> {
-            use crate::schema::pipelines::dsl::*;
+        fn task(context: &Database) -> FieldResult<Option<Task>> {
+            use crate::schema::tasks::dsl::*;
 
-            pipelines
-                .filter(id.eq(self.pipeline_id))
+            tasks
+                .filter(id.eq(self.task_id))
                 .first(&**context)
                 .map(Some)
                 .map_err(Into::into)
@@ -363,7 +359,7 @@ mod tests {
             selection_constraint: None,
             default_value: None,
             example_value: None,
-            pipeline_id: 0,
+            task_id: 0,
         }
     }
 

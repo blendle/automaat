@@ -4,7 +4,7 @@
 //!
 //! * Use a persistent database to store the state of the Automaat instance.
 //! * Expose a GraphQL API to fetch and create tasks
-//! * Adds some abstractions (such as "pipelines") for ease of use.
+//! * Adds some abstractions (such as "tasks") for ease of use.
 //!
 //! By combining this server with `automaat-web-client`, you can have your own
 //! Automaat instance running in your environment.
