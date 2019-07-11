@@ -1,6 +1,6 @@
 use crate::resources::{
-    variable, CreateJobFromTaskInput, CreateTaskInput, Job, NewJob, NewTask, SearchTaskInput, Task,
-    VariableValue,
+    CreateJobFromTaskInput, CreateTaskInput, Job, NewJob, NewJobVariable, NewTask, SearchTaskInput,
+    Task,
 };
 use crate::Database;
 use diesel::prelude::*;
@@ -94,41 +94,13 @@ impl MutationRoot {
                 .first(&**context)
         }?;
 
-        let variable_values = job
+        let variables = job
             .variables
-            .into_iter()
+            .iter()
             .map(Into::into)
-            .collect::<Vec<VariableValue>>();
+            .collect::<Vec<NewJobVariable<'_>>>();
 
-        let task_variables = task.variables(context)?;
-
-        if let Some(variables) = variable::missing_values(&task_variables, &variable_values) {
-            let keys = variables.iter().map(|v| v.key.as_str()).collect::<Vec<_>>();
-
-            return Err(format!(r#"missing variable values: {}"#, keys.join(", ")).into());
-        }
-
-        if let Some(results) =
-            variable::selection_constraint_mismatch(&task_variables, &variable_values)
-        {
-            let variable = results[0].0;
-            let value = results[0].1;
-
-            // TODO: turn this into a structured error object, so we can expose
-            // all the invalid variables at once.
-            return Err(format!(
-                r#"invalid variable value: "{}", must be one of: {:?}"#,
-                value.key,
-                variable
-                    .selection_constraint
-                    .as_ref()
-                    .unwrap_or(&vec![])
-                    .join(", ")
-            )
-            .into());
-        }
-
-        let mut new_job = NewJob::create_from_task(context, &task, &variable_values)
+        let mut new_job = NewJob::create_from_task(context, &task, variables)
             .map_err(Into::<FieldError>::into)?;
 
         // TODO: when we have scheduling, we probably want this to be optional,

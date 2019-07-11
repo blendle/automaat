@@ -35,6 +35,15 @@ table! {
 }
 
 table! {
+    job_variables (id) {
+        id -> Integer,
+        key -> Text,
+        value -> Bytea,
+        job_id -> Integer,
+    }
+}
+
+table! {
     jobs (id) {
         id -> Integer,
         name -> Text,
@@ -58,7 +67,8 @@ table! {
 
 joinable!(steps -> tasks (task_id));
 joinable!(job_steps -> jobs (job_id));
+joinable!(job_variables -> jobs (job_id));
 joinable!(jobs -> tasks (task_reference));
 joinable!(variables -> tasks (task_id));
 
-allow_tables_to_appear_in_same_query!(tasks, steps, job_steps, jobs, variables);
+allow_tables_to_appear_in_same_query!(tasks, steps, job_steps, job_variables, jobs, variables);

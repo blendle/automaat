@@ -6,6 +6,7 @@ pub(crate) mod variable;
 pub(crate) use job::step::{
     JobStep, NewJobStep, Status as JobStepStatus, StatusMapping as JobStepStatusMapping,
 };
+pub(crate) use job::variable::{graphql::JobVariableInput, JobVariable, NewJobVariable};
 pub(crate) use job::{
     graphql::CreateJobFromTaskInput, poll as poll_jobs, Job, NewJob,
     StatusMapping as JobStatusMapping,
@@ -15,7 +16,4 @@ pub(crate) use task::{
     graphql::{CreateTaskInput, SearchTaskInput},
     NewTask, Task,
 };
-pub(crate) use variable::{
-    graphql::{CreateVariableInput, VariableValueInput},
-    NewVariable, Variable, VariableValue,
-};
+pub(crate) use variable::{graphql::CreateVariableInput, NewVariable, Variable};

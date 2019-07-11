@@ -10,7 +10,7 @@
 //! [`Processor`]: crate::Processor
 //! [`Step`]: crate::resources::Step
 
-use crate::resources::{Job, Step, VariableValue};
+use crate::resources::{Job, Step};
 use crate::schema::job_steps;
 use crate::Database;
 use crate::Processor;
@@ -21,7 +21,7 @@ use diesel::prelude::*;
 use juniper::GraphQLEnum;
 use serde::{Deserialize, Serialize};
 use std::convert::{AsRef, TryFrom};
-use std::error;
+use std::error::Error;
 
 /// The status of the job step.
 #[derive(Clone, Copy, Debug, DbEnum, GraphQLEnum, Serialize, Deserialize)]
@@ -89,13 +89,13 @@ impl JobStep {
         conn: &Database,
         context: &Context,
         input: Option<&str>,
-    ) -> Result<Option<String>, Box<dyn error::Error>> {
+    ) -> Result<Option<String>, Box<dyn Error>> {
         self.start(conn)?;
 
         // TODO: this needs to go in a transaction, and the changes reverted if
         // they can't be saved... Also goes for many other places.
 
-        let result = match self.processor_with_input_and_context(input, context) {
+        let result = match self.formalize_processor(input, context, conn) {
             Ok(p) => p.run(context),
             Err(err) => Err(format!("job processor cannot be deserialized: {}", err).into()),
         };
@@ -156,16 +156,20 @@ impl JobStep {
         *value = string.into();
     }
 
-    /// Takes the associated job step processor, and swaps the templated
-    /// variables `{$input}` and `{$workspace}` for the actual values.
-    fn processor_with_input_and_context(
+    /// Takes the associated job step processor, and formalizes its definition
+    /// by replacing any templated variables.
+    fn formalize_processor(
         &mut self,
         input: Option<&str>,
         context: &Context,
-    ) -> Result<Processor, serde_json::Error> {
+        conn: &Database,
+    ) -> Result<Processor, Box<dyn Error>> {
         let mut processor = self.processor.clone();
-
         let workspace = context.workspace_path().to_str().expect("valid path");
+        let variables = self
+            .job(conn)
+            .and_then(|j| j.variables(conn))
+            .map_err(Into::<Box<dyn Error>>::into)?;
 
         processor
             .as_object_mut()
@@ -176,16 +180,21 @@ impl JobStep {
                     .expect("unexpected serialized data stored in database")
                     .values_mut()
                     .for_each(|v| {
+                        for var in &variables {
+                            let key = format!("{{{}}}", var.key);
+                            self.value_replace(v, key.as_str(), var.value.as_str());
+                        }
+
                         self.value_replace(v, "{$input}", input.as_ref().unwrap_or(&""));
                         self.value_replace(v, "${$workspace}", workspace)
                     })
             });
 
-        serde_json::from_value(processor)
+        serde_json::from_value(processor).map_err(Into::into)
     }
 }
 
-/// Contains all the details needed to store a step in the database.
+/// Contains all the details needed to store a job step in the database.
 ///
 /// Use [`NewJobStep::new`] to initialize this struct.
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -201,8 +210,8 @@ pub(crate) struct NewJobStep<'a> {
 }
 
 impl<'a> NewJobStep<'a> {
-    /// Initialize a `NewStep` struct, which can be inserted into the
-    /// database using the [`NewStep#add_to_task`] method.
+    /// Initialize a `NewJobStep` struct, which can be inserted into the
+    /// database using the [`NewStep#add_to_job`] method.
     pub(crate) const fn new(
         name: &'a str,
         description: Option<&'a str>,
@@ -229,11 +238,7 @@ impl<'a> NewJobStep<'a> {
     ///
     /// This method can return an error if the database insert failed, or if the
     /// associated processor is invalid.
-    pub(crate) fn add_to_job(
-        self,
-        conn: &Database,
-        job: &Job,
-    ) -> Result<(), Box<dyn error::Error>> {
+    pub(crate) fn add_to_job(self, conn: &Database, job: &Job) -> Result<(), Box<dyn Error>> {
         use crate::schema::job_steps::dsl::*;
 
         self.processor.validate()?;
@@ -376,66 +381,14 @@ pub(crate) mod graphql {
     }
 }
 
-impl<'a> TryFrom<(&'a Step, &[VariableValue])> for NewJobStep<'a> {
+impl<'a> TryFrom<&'a Step> for NewJobStep<'a> {
     type Error = serde_json::Error;
 
-    fn try_from(
-        (step, variable_values): (&'a Step, &[VariableValue]),
-    ) -> Result<Self, Self::Error> {
-        use serde_json::{from_value, Value};
-
-        // Replace any templated variables inside the providedd `value` object,
-        // based on the provided set of `variable_values`.
-        //
-        // For example: value "{hello} world" with a `VariableValue` with key
-        // `hello` and value `hey there` would result in `hey there world`.
-        //
-        // This only works for string-based value objects. If the value is an
-        // array, this function is recursed. Any other value type is ignored.
-        fn replace(value: &mut Value, variable_values: &[VariableValue]) {
-            if value.is_array() {
-                value
-                    .as_array_mut()
-                    .unwrap()
-                    .iter_mut()
-                    .for_each(|v| replace(v, variable_values));
-            };
-
-            if !value.is_string() {
-                return;
-            }
-
-            variable_values.iter().for_each(|vv| {
-                let string = value.as_str().unwrap().to_owned();
-                let string = string.replace(&format!("{{{}}}", vv.key), &vv.value);
-
-                *value = string.into();
-            });
-        }
-
-        let mut processor: Value = step.processor.clone();
-
-        // This is a bit cryptic, but here's what's happening:
-        processor
-            // We've serialized the processor as a JSON object, so read it in.
-            // That will give us back `{ "ProcessorName": { ~properties~ } }`.
-            .as_object_mut()
-            .expect("unexpected serialized data stored in database")
-            // We want the `{ ~properties~ }` object. So take "all" values.
-            .values_mut()
-            .for_each(|v| {
-                // Take the key/value properties stored in `{ ~properties~ }`
-                v.as_object_mut()
-                    .expect("unexpected serialized data stored in database")
-                    // Loop over all of them, and call the `replace` fn.
-                    .values_mut()
-                    .for_each(|v| replace(v, variable_values))
-            });
-
+    fn try_from(step: &'a Step) -> Result<Self, Self::Error> {
         Ok(Self::new(
             &step.name,
             step.description.as_ref().map(String::as_ref),
-            from_value(processor)?,
+            serde_json::from_value(step.processor.clone())?,
             step.position,
         ))
     }

@@ -46,6 +46,20 @@ impl Task {
 
         Variable::belonging_to(self).order(id.desc()).load(&**conn)
     }
+
+    /// Return the task variable matching the given key, if any.
+    pub(crate) fn variable_with_key(
+        &self,
+        key: &str,
+        conn: &Database,
+    ) -> QueryResult<Option<Variable>> {
+        use crate::schema::variables::dsl::key as vkey;
+
+        Variable::belonging_to(self)
+            .filter(vkey.eq(key))
+            .first(&**conn)
+            .optional()
+    }
 }
 
 /// Contains all the details needed to store a task in the database.

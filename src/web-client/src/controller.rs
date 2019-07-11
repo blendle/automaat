@@ -175,7 +175,7 @@ impl task::Actions for Controller {
                         return None;
                     };
 
-                    Some(VariableValueInput { key, value })
+                    Some(JobVariableInput { key, value })
                 })
                 .collect(),
         };

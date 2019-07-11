@@ -48,55 +48,6 @@ pub(crate) struct Variable {
     pub(crate) task_id: i32,
 }
 
-/// The actual runtime variable value belonging to a value (matched by key).
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
-pub(crate) struct VariableValue {
-    pub(crate) key: String,
-    pub(crate) value: String,
-}
-
-pub(crate) fn missing_values<'a>(
-    variables: &'a [Variable],
-    values: &'a [VariableValue],
-) -> Option<Vec<&'a Variable>> {
-    let missing = variables
-        .iter()
-        .filter(|variable| !values.iter().any(|value| value.key == variable.key))
-        .collect::<Vec<_>>();
-
-    if missing.is_empty() {
-        None
-    } else {
-        Some(missing)
-    }
-}
-
-pub(crate) fn selection_constraint_mismatch<'a>(
-    variables: &'a [Variable],
-    values: &'a [VariableValue],
-) -> Option<Vec<(&'a Variable, &'a VariableValue)>> {
-    let invalid = variables
-        .iter()
-        .filter_map(|variable| {
-            if let Some(selection) = &variable.selection_constraint {
-                for value in values {
-                    if variable.key == value.key && !selection.contains(&value.value) {
-                        return Some((variable, value));
-                    }
-                }
-            };
-
-            None
-        })
-        .collect::<Vec<_>>();
-
-    if invalid.is_empty() {
-        None
-    } else {
-        Some(invalid)
-    }
-}
-
 /// Contains all the details needed to store a variable in the database.
 ///
 /// Use [`NewVariable::new`] to initialize this struct.
@@ -220,19 +171,12 @@ pub(crate) mod graphql {
         pub(crate) selection: Option<Vec<String>>,
     }
 
-    /// Contains all the data needed to replace templated step configs.
-    #[derive(Clone, Debug, Deserialize, Serialize, GraphQLInputObject)]
-    pub(crate) struct VariableValueInput {
-        pub(crate) key: String,
-        pub(crate) value: String,
-    }
-
     /// The set of constraints that apply to a variable value.
     #[derive(Clone, Debug, Deserialize, Serialize, GraphQLObject)]
     pub(crate) struct VariableConstraints {
         /// An (optional) set of value selection constraints for this variable.
         ///
-        /// If this field returns an array, any `VariableValue` matching the key
+        /// If this field returns an array, any variable value matching the key
         /// of this variable will need to have its value match one of the
         /// strings inside this array.
         ///
@@ -335,102 +279,5 @@ impl<'a> TryFrom<&'a graphql::CreateVariableInput> for NewVariable<'a> {
             input.example_value.as_ref().map(String::as_ref),
             input.description.as_ref().map(String::as_ref),
         )
-    }
-}
-
-impl From<graphql::VariableValueInput> for VariableValue {
-    fn from(input: graphql::VariableValueInput) -> Self {
-        Self {
-            key: input.key,
-            value: input.value,
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn variable_stub() -> Variable {
-        Variable {
-            id: 0,
-            key: "hello".to_owned(),
-            description: None,
-            selection_constraint: None,
-            default_value: None,
-            example_value: None,
-            task_id: 0,
-        }
-    }
-
-    fn var(key: &str, selection: Vec<&str>) -> Variable {
-        let mut var = variable_stub();
-        var.key = key.to_owned();
-        var.selection_constraint = Some(selection.into_iter().map(ToOwned::to_owned).collect());
-        var
-    }
-
-    fn val(key: &str, value: &str) -> VariableValue {
-        VariableValue {
-            key: key.to_owned(),
-            value: value.to_owned(),
-        }
-    }
-
-    #[test]
-    fn test_missing_values() {
-        let galaxy = var("galaxy", vec![]);
-        let planet = var("planet", vec![]);
-        let variables = vec![galaxy.clone(), planet];
-
-        let planet_earth = val("planet", "earth");
-        let universe_42 = val("universe", "42");
-        let values = vec![planet_earth, universe_42];
-
-        let missing = missing_values(&variables, &values).expect("Some");
-
-        assert_eq!(missing.len(), 1);
-        assert_eq!(missing[0].key, galaxy.key);
-    }
-
-    #[test]
-    fn test_selection_constraint_mismatch() {
-        let galaxy = var("galaxy", vec!["milkyway", "andromeda"]);
-        let planet = var("planet", vec!["earth", "venus"]);
-        let variables = vec![galaxy.clone(), planet];
-
-        let galaxy_loopy = val("galaxy", "loopy");
-        let planet_earth = val("planet", "earth");
-        let universe_42 = val("universe", "42");
-        let values = vec![galaxy_loopy.clone(), planet_earth, universe_42];
-
-        let mismatch = selection_constraint_mismatch(&variables, &values).expect("Some");
-
-        assert_eq!(mismatch.len(), 1);
-        assert_eq!(mismatch[0].0.key, galaxy.key);
-        assert_eq!(mismatch[0].1, &galaxy_loopy);
-    }
-
-    #[test]
-    fn test_new_variable_with_default() {
-        let _ = NewVariable::new("var 1", None, Some("foo"), None, None).unwrap();
-    }
-
-    #[test]
-    fn test_new_variable_with_selection_constraint_no_default() {
-        let _ = NewVariable::new("var 1", Some(vec!["foo", "bar"]), None, None, None).unwrap();
-    }
-
-    #[test]
-    fn test_new_variable_with_default_matching_selection_constraint() {
-        let _ =
-            NewVariable::new("var 1", Some(vec!["foo", "bar"]), Some("foo"), None, None).unwrap();
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_new_variable_default_not_in_selection_constraint() {
-        let _ =
-            NewVariable::new("var 1", Some(vec!["foo", "bar"]), Some("baz"), None, None).unwrap();
     }
 }

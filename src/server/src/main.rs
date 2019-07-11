@@ -73,6 +73,16 @@ use diesel_migrations::embed_migrations;
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use std::{env, io, ops::Deref, sync::Arc, thread};
 
+// TODO: rename `Database` to `State` and move this into the state object,
+// passing it along when needed.
+//
+// TODO: when we have proper logging, warn when no secret is provided,
+// potentially refuse to start in non-debug mode.
+lazy_static::lazy_static! {
+    static ref SERVER_SECRET: String = env::var("SERVER_SECRET")
+        .unwrap_or_else(|_| "default secret".to_owned());
+}
+
 /// The main database connection pool shared across all threads.
 pub(crate) struct Database(PooledConnection<ConnectionManager<PgConnection>>);
 

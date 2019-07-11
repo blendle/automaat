@@ -11,6 +11,7 @@ You can set the following environment variables:
 - `SERVER_BIND`: Address and port to bind to (e.g. `0.0.0.0:443`).
 - `SERVER_SSL_KEY_PATH`: Path to your (optional) SSL private key.
 - `SERVER_SSL_CHAIN_PATH`: Path to your (optional) SSL chained certificate.
+- `SERVER_SECRET`: Optional secret key to encrypt global and local variable values at rest.
 
 ## See Also
 

@@ -5,7 +5,7 @@ schema {
 
 input CreateJobFromTaskInput {
   taskId: ID!
-  variables: [VariableValueInput!]!
+  variables: [JobVariableInput!]!
 }
 
 input CreateStepInput {
@@ -109,6 +109,11 @@ enum JobStepStatus {
   FAILED
   CANCELLED
   OK
+}
+
+input JobVariableInput {
+  key: String!
+  value: String!
 }
 
 type JsonEdit {
@@ -270,9 +275,4 @@ type VariableConstraints {
 
 input VariableConstraintsInput {
   selection: [String!]
-}
-
-input VariableValueInput {
-  key: String!
-  value: String!
 }

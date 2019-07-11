@@ -5,18 +5,20 @@
 //! a set of steps that are _ready to run_ and have their variables swapped for
 //! real values.
 
-use crate::resources::{JobStep, JobStepStatus, NewJobStep, Task, VariableValue};
+use crate::resources::{JobStep, JobStepStatus, JobVariable, NewJobStep, NewJobVariable, Task};
 use crate::schema::jobs;
 use crate::Database;
+use crate::SERVER_SECRET;
 use automaat_core::Context;
 use diesel::prelude::*;
 use juniper::GraphQLEnum;
 use serde::{Deserialize, Serialize};
 use std::convert::{Into, TryInto};
-use std::error;
+use std::error::Error;
 use std::thread;
 
 pub(crate) mod step;
+pub(crate) mod variable;
 
 /// The status of the [`Job`].
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, GraphQLEnum, DbEnum)]
@@ -107,6 +109,15 @@ impl Job {
             .load(&**conn)
     }
 
+    pub(crate) fn variables(&self, conn: &Database) -> QueryResult<Vec<JobVariable>> {
+        use crate::schema::job_variables::dsl::*;
+
+        let secret = SERVER_SECRET.as_str();
+        JobVariable::belonging_to(self)
+            .select((id, key, variable::pgp_sym_decrypt(value, secret), job_id))
+            .load(&**conn)
+    }
+
     /// Mark a job ready to run by changing its status to `Pending`.
     pub(crate) fn enqueue(&mut self, conn: &Database) -> QueryResult<Self> {
         self.status = Status::Pending;
@@ -116,7 +127,7 @@ impl Job {
     // TODO: implement some kind of `JobRunner`, that has a reference to
     // &Database, and then impl `Drop` so that if the runner stops, we can check
     // the result, and update the database based on the final status.
-    pub(crate) fn run(&self, conn: &Database) -> Result<(), Box<dyn error::Error>> {
+    pub(crate) fn run(&self, conn: &Database) -> Result<(), Box<dyn Error>> {
         use crate::schema::jobs::dsl::*;
 
         let data: Option<String> = None;
@@ -184,6 +195,7 @@ pub(crate) struct NewJob<'a> {
     status: Status,
     task_reference: Option<i32>,
     steps: Vec<NewJobStep<'a>>,
+    variables: Vec<NewJobVariable<'a>>,
 }
 
 impl<'a> NewJob<'a> {
@@ -196,24 +208,25 @@ impl<'a> NewJob<'a> {
             status: Status::Pending,
             task_reference: None,
             steps: vec![],
+            variables: vec![],
         }
     }
 
     pub(crate) fn create_from_task(
         conn: &Database,
         task: &'a Task,
-        variable_values: &[VariableValue],
-    ) -> Result<Job, Box<dyn error::Error>> {
+        variables: Vec<NewJobVariable<'a>>,
+    ) -> Result<Job, Box<dyn Error>> {
         let steps = task.steps(conn)?;
         let steps = steps
             .iter()
-            .map(|s| (s, variable_values))
             .map(TryInto::try_into)
             .collect::<Result<_, _>>()?;
 
         let mut job = Self::new(&task.name, task.description.as_ref().map(String::as_ref));
         job.with_task_reference(task.id);
         job.with_steps(steps);
+        job.with_variables(variables);
 
         job.create(conn).map_err(Into::into)
     }
@@ -222,25 +235,35 @@ impl<'a> NewJob<'a> {
         self.task_reference = Some(task_id)
     }
 
-    /// Attach zero or more steps to this task.
+    /// Attach zero or more steps to this job.
     ///
-    /// `NewTask` takes ownership of the steps, but you are required to
-    /// call [`NewTask#create`] to persist the task and its steps.
+    /// `NewJob` takes ownership of the steps, but you are required to
+    /// call [`NewJob#create`] to persist the job and its steps.
     ///
     /// Can be called multiple times to append more steps.
     fn with_steps(&mut self, mut steps: Vec<NewJobStep<'a>>) {
         self.steps.append(&mut steps)
     }
 
+    /// Attach zero or more variables to this job.
+    ///
+    /// `NewJob` takes ownership of the variables, but you are required to
+    /// call [`NewJob#create`] to persist the job and its variables.
+    ///
+    /// Can be called multiple times to append more variables.
+    fn with_variables(&mut self, mut variables: Vec<NewJobVariable<'a>>) {
+        self.variables.append(&mut variables)
+    }
+
     /// Persist the job into the database.
-    pub(crate) fn create(self, conn: &Database) -> Result<Job, Box<dyn error::Error>> {
+    pub(crate) fn create(self, conn: &Database) -> Result<Job, Box<dyn Error>> {
         use crate::schema::jobs::dsl::*;
 
         let mut job_name = self.name.to_owned();
 
         // Job names are unique over (name, task_reference). If a reference
         // exists, we add a count (such as "My Job #3") to the name of the
-        // task, based on the total amount of jobs for that task ID.
+        // job, based on the total amount of jobs for that task ID.
         //
         // Non-task based jobs will simply return an error if their name
         // isn't unique.
@@ -258,6 +281,10 @@ impl<'a> NewJob<'a> {
                 .get_result::<i64>(&**conn)?;
 
             job_name = format!("{} #{}", task.name, total + 1);
+
+            // If we're dealing with a job created from a task, we also need to
+            // validate that the task variables are all present.
+            self.validate_task_variables(&task, conn)?;
         }
 
         conn.transaction(|| {
@@ -273,12 +300,41 @@ impl<'a> NewJob<'a> {
                 .values(&values)
                 .get_result(&**conn)?;
 
+            self.variables
+                .into_iter()
+                .try_for_each(|s| s.add_to_job(conn, &job))?;
+
             self.steps
                 .into_iter()
                 .try_for_each(|s| s.add_to_job(conn, &job))?;
 
             Ok(job)
         })
+    }
+
+    /// Validate that all required variables are present.
+    ///
+    /// This is only relevant if the job is created from an existing task, in
+    /// which case the task can have any number of variables, and the provided
+    /// job variables should match those.
+    fn validate_task_variables(&self, task: &Task, conn: &Database) -> Result<(), Box<dyn Error>> {
+        let task_variables = task.variables(conn)?;
+
+        let missing = task_variables
+            .iter()
+            .filter_map(|variable| {
+                self.variables
+                    .iter()
+                    .find(|v| v.key() == variable.key)
+                    .map_or(Some(variable.key.as_str()), |_| None)
+            })
+            .collect::<Vec<_>>();
+
+        if missing.is_empty() {
+            return Ok(());
+        }
+
+        Err(format!("missing variable values: {}", missing.join(", ")).into())
     }
 }
 
@@ -294,7 +350,7 @@ pub(crate) mod graphql {
     //! mutation, and type documentation.
 
     use super::*;
-    use crate::resources::VariableValueInput;
+    use crate::resources::JobVariableInput;
     use juniper::{object, FieldResult, GraphQLInputObject, ID};
 
     /// Contains all the data needed to create a new `Task`.
@@ -311,15 +367,7 @@ pub(crate) mod graphql {
         /// The provided variable values are used in-place of the templated
         /// variables in the task before creating the job. The final step
         /// configs are then stored alongside the job in the database.
-        pub(crate) variables: Vec<VariableValueInput>,
-    }
-
-    /// Contains all the data needed to replace templated processor
-    /// configurations.
-    #[derive(Clone, Debug, Deserialize, Serialize, GraphQLInputObject)]
-    pub(crate) struct JobVariableInput {
-        pub(crate) key: String,
-        pub(crate) value: String,
+        pub(crate) variables: Vec<JobVariableInput>,
     }
 
     #[object(Context = Database)]
