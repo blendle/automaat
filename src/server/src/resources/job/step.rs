@@ -20,8 +20,38 @@ use chrono::NaiveDateTime;
 use diesel::prelude::*;
 use juniper::GraphQLEnum;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::convert::{AsRef, TryFrom};
 use std::error::Error;
+use tera::{Context as TContext, Tera};
+
+const INVALID_SERIALIZED_DATA: &str = "unexpected serialized data stored in database";
+
+/// Contains all the data that can be used in processor templates.
+#[derive(Serialize)]
+struct TemplateData<'a> {
+    /// The variable values defined by the task for which the values are
+    /// provided when a job is created.
+    var: HashMap<&'a str, &'a str>,
+
+    /// System level variables that cannot be altered.
+    sys: SystemVariables<'a>,
+}
+
+/// Contains all exposed system variables.
+#[derive(Serialize)]
+struct SystemVariables<'a> {
+    /// Contains the output of the previous step that ran as part of this job.
+    ///
+    /// This value is an empty string if this is the first step to run, or the
+    /// previous step provided no output.
+    #[serde(rename = "previous step output")]
+    step_output: &'a str,
+
+    /// Contains the path to the current workspace.
+    #[serde(rename = "workspace path")]
+    workspace_path: &'a str,
+}
 
 /// The status of the job step.
 #[derive(Clone, Copy, Debug, DbEnum, GraphQLEnum, Serialize, Deserialize)]
@@ -138,24 +168,6 @@ impl JobStep {
         self.save_changes::<Self>(&**conn).map(|_| ())
     }
 
-    fn value_replace(&self, value: &mut serde_json::Value, find: &str, replace: &str) {
-        if value.is_array() {
-            value
-                .as_array_mut()
-                .unwrap()
-                .iter_mut()
-                .for_each(|v| self.value_replace(v, find, replace));
-        };
-
-        if !value.is_string() {
-            return;
-        }
-
-        let string = value.as_str().unwrap().to_owned();
-        let string = string.replace(find, replace);
-        *value = string.into();
-    }
-
     /// Takes the associated job step processor, and formalizes its definition
     /// by replacing any templated variables.
     fn formalize_processor(
@@ -164,33 +176,107 @@ impl JobStep {
         context: &Context,
         conn: &Database,
     ) -> Result<Processor, Box<dyn Error>> {
-        let mut processor = self.processor.clone();
-        let workspace = context.workspace_path().to_str().expect("valid path");
         let variables = self
             .job(conn)
             .and_then(|j| j.variables(conn))
             .map_err(Into::<Box<dyn Error>>::into)?;
 
-        processor
-            .as_object_mut()
-            .expect("unexpected serialized data stored in database")
-            .values_mut()
-            .for_each(|v| {
-                v.as_object_mut()
-                    .expect("unexpected serialized data stored in database")
-                    .values_mut()
-                    .for_each(|v| {
-                        for var in &variables {
-                            let key = format!("{{{}}}", var.key);
-                            self.value_replace(v, key.as_str(), var.value.as_str());
-                        }
+        let var = variables
+            .iter()
+            .map(|v| (v.key.as_str(), v.value.as_str()))
+            .collect();
 
-                        self.value_replace(v, "{$input}", input.as_ref().unwrap_or(&""));
-                        self.value_replace(v, "${$workspace}", workspace)
-                    })
-            });
+        let sys = SystemVariables {
+            step_output: input.unwrap_or(""),
+            workspace_path: context.workspace_path().to_str().unwrap_or(""),
+        };
+
+        // Build a dataset of key/value pairs that can be used in the template
+        // as variables and their substituted values.
+        let data = TemplateData { var, sys };
+
+        // The processor is serialized as `{ "ProcessorType": { ... } }` in the
+        // database in order for Serde to know to which processor to deserialize
+        // the JSON to.
+        //
+        // In this case, we want the configuration of the processor as a JSON
+        // object, so we take "all values" (there's only one, the `{ ... }`
+        // part).
+        let mut processor = self.processor.clone();
+        let config = processor
+            .as_object_mut()
+            .ok_or(INVALID_SERIALIZED_DATA)?
+            .values_mut()
+            .flat_map(serde_json::Value::as_object_mut)
+            .next()
+            .ok_or(INVALID_SERIALIZED_DATA)?;
+
+        // process all values in the processor configuration as their own
+        // templates.
+        config
+            .values_mut()
+            .try_for_each(|v| self.formalize_value(v, &data))?;
 
         serde_json::from_value(processor).map_err(Into::into)
+    }
+
+    // Take a mutable JSON value reference, and a dataset of key/value pairs,
+    // and formalize the final JSON value using a Jinja-like templating language
+    // (using the Tera crate).
+    //
+    // If the JSON value is an array, the function recurses over the values
+    // within that array.
+    //
+    // If the value is `null`, it is ignored.
+    //
+    // If the leaf JSON value is anything other than a string (or null), this
+    // function returns an error.
+    fn formalize_value(
+        &self,
+        value: &mut serde_json::Value,
+        data: &TemplateData<'_>,
+    ) -> Result<(), String> {
+        if value.is_array() {
+            return value
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .try_for_each(|v| self.formalize_value(v, data));
+        };
+
+        if value.is_null() {
+            return Ok(());
+        } else if !value.is_string() {
+            return Err(INVALID_SERIALIZED_DATA.to_owned());
+        };
+
+        let context = TContext::from_serialize(data).map_err(|e| e.to_string())?;
+
+        let mut tera = Tera::default();
+        tera.add_raw_template("processor configuration", value.as_str().unwrap())
+            .map_err(|e| e.to_string())?;
+
+        match tera.render("processor configuration", context) {
+            Ok(string) => *value = string.into(),
+            Err(err) => {
+                use tera::ErrorKind::*;
+
+                let string = match err.kind {
+                    FilterNotFound(string) => format!("missing template filter: {}", string),
+                    TestNotFound(string) => format!("missing template test: {}", string),
+                    FunctionNotFound(string) => format!("missing template function: {}", string),
+                    Json(string) => format!("template json error: {}", string),
+                    _ => match err.source() {
+                        Some(source) => format!("template error: {}", source.to_string()),
+                        None => format!("unknown template error: {}", err.to_string()),
+                    },
+                };
+
+                return Err(string);
+            }
+        };
+
+        Ok(())
     }
 }
 
