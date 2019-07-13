@@ -1,8 +1,10 @@
+mod global_variable;
 mod job;
 mod step;
 mod task;
 pub(crate) mod variable;
 
+pub(crate) use global_variable::graphql::{GlobalVariableInput, OnConflict};
 pub(crate) use job::step::{
     JobStep, NewJobStep, Status as JobStepStatus, StatusMapping as JobStepStatusMapping,
 };

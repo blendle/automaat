@@ -54,6 +54,7 @@ extern crate diesel_derive_enum;
 mod graphql;
 mod handlers;
 mod middleware;
+mod models;
 mod processor;
 mod resources;
 mod schema;

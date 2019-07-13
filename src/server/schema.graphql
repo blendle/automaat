@@ -45,6 +45,12 @@ input GitCloneInput {
   path: String
 }
 
+input GlobalVariableInput {
+  key: String!
+  value: String!
+  onConflict: OnConflict
+}
+
 type Header {
   name: String!
   value: String!
@@ -143,6 +149,12 @@ enum Method {
 type MutationRoot {
   createTask(task: CreateTaskInput!): Task!
   createJobFromTask(job: CreateJobFromTaskInput!): Job!
+  createGlobalVariable(variable: GlobalVariableInput!): Boolean!
+}
+
+enum OnConflict {
+  ABORT
+  UPDATE
 }
 
 type PrintOutput {

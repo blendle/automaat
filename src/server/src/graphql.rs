@@ -1,6 +1,7 @@
+use crate::models::NewGlobalVariable;
 use crate::resources::{
-    CreateJobFromTaskInput, CreateTaskInput, Job, NewJob, NewJobVariable, NewTask, SearchTaskInput,
-    Task,
+    CreateJobFromTaskInput, CreateTaskInput, GlobalVariableInput, Job, NewJob, NewJobVariable,
+    NewTask, OnConflict, SearchTaskInput, Task,
 };
 use crate::Database;
 use diesel::prelude::*;
@@ -106,5 +107,28 @@ impl MutationRoot {
         // TODO: when we have scheduling, we probably want this to be optional,
         // so that a job isn't always scheduled instantly.
         new_job.enqueue(context).map_err(Into::into)
+    }
+
+    /// Create a new global variable.
+    ///
+    /// Global variables can be accessed in task templates, without having to
+    /// supply their values on runtime.
+    ///
+    /// By default, this mutation will return an error if the variable key
+    /// already exists. If you want to override an existing key, set the
+    /// `onConflict` key to `UPDATE`.
+    fn createGlobalVariable(
+        context: &Database,
+        variable: GlobalVariableInput,
+    ) -> FieldResult<bool> {
+        use OnConflict::*;
+
+        let global_variable = NewGlobalVariable::from(&variable);
+        let global_variable = match &variable.on_conflict.as_ref().unwrap_or(&Abort) {
+            Abort => global_variable.create(&**context),
+            Update => global_variable.create_or_update(&**context),
+        };
+
+        global_variable.map(|_| true).map_err(Into::into)
     }
 }

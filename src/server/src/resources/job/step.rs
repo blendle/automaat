@@ -10,6 +10,7 @@
 //! [`Processor`]: crate::Processor
 //! [`Step`]: crate::resources::Step
 
+use crate::models::GlobalVariable;
 use crate::resources::{Job, Step};
 use crate::schema::job_steps;
 use crate::Database;
@@ -33,6 +34,9 @@ struct TemplateData<'a> {
     /// The variable values defined by the task for which the values are
     /// provided when a job is created.
     var: HashMap<&'a str, &'a str>,
+
+    /// Global variables available to all steps.
+    global: HashMap<&'a str, &'a str>,
 
     /// System level variables that cannot be altered.
     sys: SystemVariables<'a>,
@@ -181,7 +185,16 @@ impl JobStep {
             .and_then(|j| j.variables(conn))
             .map_err(Into::<Box<dyn Error>>::into)?;
 
+        let global_variables: Vec<GlobalVariable> = GlobalVariable::all()
+            .get_results(&**conn)
+            .map_err(Into::<Box<dyn Error>>::into)?;
+
         let var = variables
+            .iter()
+            .map(|v| (v.key.as_str(), v.value.as_str()))
+            .collect();
+
+        let global = global_variables
             .iter()
             .map(|v| (v.key.as_str(), v.value.as_str()))
             .collect();
@@ -193,7 +206,7 @@ impl JobStep {
 
         // Build a dataset of key/value pairs that can be used in the template
         // as variables and their substituted values.
-        let data = TemplateData { var, sys };
+        let data = TemplateData { var, global, sys };
 
         // The processor is serialized as `{ "ProcessorType": { ... } }` in the
         // database in order for Serde to know to which processor to deserialize

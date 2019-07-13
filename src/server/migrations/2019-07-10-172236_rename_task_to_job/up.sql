@@ -11,4 +11,3 @@ ALTER TABLE job_steps RENAME COLUMN task_id TO job_id;
 ALTER TYPE TaskStepStatus RENAME TO JobStepStatus;
 ALTER INDEX task_steps_pkey RENAME TO job_steps_pkey;
 ALTER INDEX task_steps_task_id_idx RENAME TO job_steps_task_id_idx;
-
