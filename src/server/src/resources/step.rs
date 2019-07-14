@@ -47,6 +47,7 @@ pub(crate) struct NewStep<'a> {
     description: Option<&'a str>,
     processor: Processor,
     position: i32,
+    advertised_variable_key: Option<&'a str>,
 }
 
 impl<'a> NewStep<'a> {
@@ -57,12 +58,14 @@ impl<'a> NewStep<'a> {
         description: Option<&'a str>,
         processor: Processor,
         position: i32,
+        advertised_variable_key: Option<&'a str>,
     ) -> Self {
         Self {
             name,
             description,
             processor,
             position,
+            advertised_variable_key,
         }
     }
 
@@ -72,24 +75,37 @@ impl<'a> NewStep<'a> {
     /// Requires a reference to a Task, in order to create the correct data
     /// reference.
     ///
+    /// If the step has an advertised variable key configured, it will be saved
+    /// in the database as well. This happens within a transaction so both
+    /// inserts have to succeed.
+    ///
     /// This method can return an error if the database insert failed, or if the
     /// step processor cannot be serialized.
     pub(crate) fn add_to_task(self, conn: &Database, task: &Task) -> Result<(), Box<dyn Error>> {
-        use crate::schema::steps::dsl::*;
+        use crate::models::NewVariableAdvertisement;
 
         let values = (
-            name.eq(&self.name),
-            description.eq(&self.description),
-            processor.eq(serde_json::to_value(self.processor)?),
-            position.eq(self.position),
-            task_id.eq(task.id),
+            steps::name.eq(&self.name),
+            steps::description.eq(&self.description),
+            steps::processor.eq(serde_json::to_value(self.processor)?),
+            steps::position.eq(self.position),
+            steps::task_id.eq(task.id),
         );
 
-        diesel::insert_into(steps)
-            .values(values)
-            .execute(&**conn)
-            .map(|_| ())
-            .map_err(Into::into)
+        let advertised_key = &self.advertised_variable_key;
+
+        conn.transaction(move || {
+            let step: Step = diesel::insert_into(steps::table)
+                .values(values)
+                .get_result(&**conn)
+                .map_err(Into::<Box<dyn Error>>::into)?;
+
+            if let Some(key) = advertised_key {
+                let _ = NewVariableAdvertisement::new(key, step.id).create(&**conn)?;
+            };
+
+            Ok(())
+        })
     }
 }
 
@@ -137,6 +153,20 @@ pub(crate) mod graphql {
         /// input type. Providing anything else will result in an error from the
         /// API.
         pub(crate) processor: ProcessorInput,
+
+        /// Advertise the key of a variable this step can provide a value for.
+        ///
+        /// This an optional, free-form name.
+        ///
+        /// As an example, say that this step were to fetch a customer UUID from
+        /// an external data store and provide that UUID as the output value of
+        /// this step, then the `advertised_variable_key` value could be set to
+        /// `Customer UUID`.
+        ///
+        /// Now, any other task that needs a variable with that exact name as
+        /// its input, can use the task this step belongs to to fetch that
+        /// value.
+        pub(crate) advertised_variable_key: Option<String>,
     }
 
     #[object(Context = Database)]
@@ -204,9 +234,10 @@ impl<'a> TryFrom<(usize, &'a graphql::CreateStepInput)> for NewStep<'a> {
     fn try_from((index, input): (usize, &'a graphql::CreateStepInput)) -> Result<Self, String> {
         Ok(Self::new(
             &input.name,
-            input.description.as_ref().map(String::as_ref),
+            input.description.as_ref().map(String::as_str),
             input.processor.clone().try_into()?,
             index as i32,
+            input.advertised_variable_key.as_ref().map(String::as_str),
         ))
     }
 }

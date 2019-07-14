@@ -12,6 +12,7 @@ input CreateStepInput {
   name: String!
   description: String
   processor: ProcessorInput!
+  advertisedVariableKey: String
 }
 
 input CreateTaskInput {
@@ -279,6 +280,7 @@ type Variable {
   exampleValue: String
   constraints: VariableConstraints!
   task: Task
+  valueAdvertisers: [Task!]!
 }
 
 type VariableConstraints {

@@ -261,6 +261,34 @@ pub(crate) mod graphql {
                 .map(Some)
                 .map_err(Into::into)
         }
+
+        /// This returns a list of tasks that can provide the value for this
+        /// variable.
+        ///
+        /// For example, if this variable's key is `Customer UUID`, then any
+        /// task that has a step that advertises that it can provide the value
+        /// for a variable with that key will be returned in this query.
+        ///
+        /// Clients can use this list to help someone using a task that needs
+        /// this variable by guiding them to another task that can provide the
+        /// value for this variable.
+        fn value_advertisers(context: &Database) -> FieldResult<Vec<Task>> {
+            use crate::models::VariableAdvertisement;
+            use crate::schema::{steps, tasks, variable_advertisements};
+            use diesel::dsl::any;
+
+            let adverts = VariableAdvertisement::by_key(self.key.as_ref())
+                .select(variable_advertisements::step_id);
+
+            let steps = steps::table
+                .filter(steps::id.eq(any(adverts)))
+                .select(steps::task_id);
+
+            tasks::table
+                .filter(tasks::id.eq(any(steps)))
+                .get_results(&**context)
+                .map_err(Into::into)
+        }
     }
 }
 

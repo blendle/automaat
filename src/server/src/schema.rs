@@ -66,6 +66,14 @@ table! {
 }
 
 table! {
+    variable_advertisements (id) {
+        id -> Integer,
+        key -> Text,
+        step_id -> Integer,
+    }
+}
+
+table! {
     global_variables (id) {
         id -> Integer,
         key -> Text,
@@ -78,6 +86,7 @@ joinable!(job_steps -> jobs (job_id));
 joinable!(job_variables -> jobs (job_id));
 joinable!(jobs -> tasks (task_reference));
 joinable!(variables -> tasks (task_id));
+joinable!(variable_advertisements -> steps (step_id));
 
 allow_tables_to_appear_in_same_query!(
     tasks,
@@ -86,5 +95,6 @@ allow_tables_to_appear_in_same_query!(
     job_variables,
     jobs,
     variables,
+    variable_advertisements,
     global_variables
 );
