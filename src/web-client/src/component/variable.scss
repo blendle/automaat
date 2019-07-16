@@ -26,12 +26,45 @@
   &-field {
     @extend .field;
 
-    > div {
+    > div:first-child {
       @extend .control;
       @extend .is-size-5;
     }
+  }
 
-    p { @extend .help; }
+  &-details {
+    @extend .help;
+
+    p { margin-bottom: 0.25rem !important; }
+  }
+
+  &-advertisers {
+    @extend .level;
+    @extend .is-mobile;
+
+    .menu {
+      @extend %menu;
+      @extend .is-hoverable;
+      @extend .is-up;
+    }
+
+    > span > a,
+    .menu > div > a {
+      @extend .button;
+      @extend .is-small;
+      @extend .is-text;
+
+      padding: 0 0.2em !important;
+    }
+
+    > span { @extend .level-left; }
+
+    .info {
+      @extend %span-icon;
+
+      margin: 0 !important;
+      i::before { content: "\f05a"; } // info-circle
+    }
   }
 
   &-select {

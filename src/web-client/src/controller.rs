@@ -132,8 +132,8 @@ impl task::Actions for Controller {
                     .map(Into::into)
                     .ok_or(())
             })
-            .then(move |task| {
-                tasks.add(task.unwrap_throw());
+            .then(move |new_tasks: Result<Vec<_>, _>| {
+                tasks.append(new_tasks.unwrap_throw());
                 let _ = tasks.activate_task(id);
                 let _ = lock.replace(tasks);
                 vdom.render().map_err(|_| ())

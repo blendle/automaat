@@ -66,6 +66,20 @@ impl Tasks {
         let _ = self.tasks.insert(task.id(), task);
     }
 
+    /// Take a vector of tasks and add any that are still missing, or update existing ones that
+    /// have the same amount (but possibly outdated) information stored in them.
+    pub(crate) fn append(&mut self, tasks: Vec<Task>) {
+        for task in tasks {
+            if let Some(existing) = self.get_mut(&task.id()) {
+                if existing.variables().is_none() {
+                    *existing = task
+                }
+            } else {
+                self.add(task)
+            }
+        }
+    }
+
     /// Check if a given task ID exists in the cache.
     pub(crate) fn contains(&self, id: &Id) -> bool {
         self.tasks.contains_key(id)

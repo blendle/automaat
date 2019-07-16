@@ -40,3 +40,28 @@
 %button-with-icon-last {
   span:last-child { @extend %span-icon; }
 }
+
+%menu {
+  @extend .dropdown;
+
+  div[role=menu] {
+    > div {
+      @extend .dropdown-content;
+
+      div,
+      p,
+      a { @extend .dropdown-item; }
+    }
+
+    p {
+      @extend .is-size-7;
+      @extend .has-text-grey;
+    }
+
+    a {
+      @extend .has-text-link;
+    }
+
+    hr { @extend .dropdown-divider; }
+  }
+}

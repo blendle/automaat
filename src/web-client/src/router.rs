@@ -47,7 +47,6 @@ where
                     let vdom = vdom.clone();
                     move |root| {
                         let vdom = vdom.clone();
-                        log::info!("hello from popstate");
                         Self::handle_route_change(route, root, vdom)
                     }
                 })

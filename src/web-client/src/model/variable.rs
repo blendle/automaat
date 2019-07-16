@@ -1,12 +1,29 @@
 //! A variable belonging to a task.
 
-use crate::graphql::fetch_task_details::FetchTaskDetailsTaskVariables;
+use crate::graphql::fetch_task_details::{
+    FetchTaskDetailsTaskVariables, FetchTaskDetailsTaskVariablesValueAdvertisers,
+};
+use crate::model::task::Id as TaskId;
 
 /// The variable model.
 #[derive(Clone, Debug)]
 pub(crate) struct Variable<'a> {
     /// The inner representation of the task variable, as defined by the server.
     inner: &'a FetchTaskDetailsTaskVariables,
+}
+
+/// A collection of task details needed to expose the details of a value
+/// advertisement in the task details overview.
+#[derive(Debug)]
+pub(crate) struct ValueAdvertiser<'a> {
+    /// The ID of the task advertising a given variable value.
+    pub(crate) task_id: TaskId,
+
+    /// The name of the advertising task.
+    pub(crate) name: &'a str,
+
+    /// The description of the advertising task.
+    pub(crate) description: Option<&'a str>,
 }
 
 impl<'a> Variable<'a> {
@@ -42,6 +59,26 @@ impl<'a> Variable<'a> {
             .as_ref()
             .map(|v| v.iter().map(String::as_str).collect())
     }
+
+    /// Return a list of task details that advertise their capability of
+    /// providing a value for this variable.
+    pub(crate) fn value_advertisers(&self) -> Vec<ValueAdvertiser<'a>> {
+        self.inner
+            .value_advertisers
+            .iter()
+            .map(Into::into)
+            .collect()
+    }
+}
+
+impl<'a> From<&'a FetchTaskDetailsTaskVariablesValueAdvertisers> for ValueAdvertiser<'a> {
+    fn from(advert: &'a FetchTaskDetailsTaskVariablesValueAdvertisers) -> Self {
+        Self {
+            task_id: TaskId::new(advert.id.to_owned()),
+            name: advert.name.as_str(),
+            description: advert.description.as_ref().map(String::as_str),
+        }
+    }
 }
 
 impl<'a> From<&'a FetchTaskDetailsTaskVariables> for Variable<'a> {
@@ -49,6 +86,3 @@ impl<'a> From<&'a FetchTaskDetailsTaskVariables> for Variable<'a> {
         Self { inner }
     }
 }
-
-// #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-// pub(crate) struct Id(String);

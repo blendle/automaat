@@ -4,7 +4,8 @@
 //! input field, depending on the variable properties (such as if it's required,
 //! if the types of values are constraint, etc.).
 
-use crate::model::variable;
+use crate::model::variable::{self, ValueAdvertiser};
+use crate::router::Route;
 use crate::utils;
 use dodrio::bumpalo::{collections::string::String, format, Bump};
 use dodrio::{Node, Render, RenderContext};
@@ -91,6 +92,17 @@ trait Views<'b> {
     /// A variable field, which contains a label, and one of the defined field
     /// types.
     fn field(&self, cx: &mut RenderContext<'b>) -> Node<'b>;
+
+    /// Any extra details shown below the variable field.
+    fn details(&self, cx: &mut RenderContext<'b>) -> Node<'b>;
+
+    /// One or more value advertisers presented as a means to provide the value
+    /// for this variable.
+    fn value_advertisers(
+        &self,
+        cx: &mut RenderContext<'b>,
+        adverts: Vec<ValueAdvertiser<'_>>,
+    ) -> Node<'b>;
 }
 
 impl<'a, 'b> Views<'b> for Variable<'a> {
@@ -251,15 +263,107 @@ impl<'a, 'b> Views<'b> for Variable<'a> {
             None => self.input(cx),
         };
 
-        let description = String::from_str_in(self.variable.description(), cx.bump).into_bump_str();
-
         div(&cx)
             .child(
                 div(&cx)
                     .attr("class", "variable-field")
-                    .children([input, p(&cx).child(text(description)).finish()])
+                    .children([input, self.details(cx)])
                     .finish(),
             )
+            .finish()
+    }
+
+    fn details(&self, cx: &mut RenderContext<'b>) -> Node<'b> {
+        use dodrio::builder::*;
+
+        let description = String::from_str_in(self.variable.description(), cx.bump).into_bump_str();
+        let mut node = div(&cx)
+            .attr("class", "variable-details")
+            .child(p(&cx).child(text(description)).finish());
+
+        let adverts = self.variable.value_advertisers();
+        if self.variable.selection_constraint().is_none() && !adverts.is_empty() {
+            node = node.child(self.value_advertisers(cx, adverts));
+        }
+
+        node.finish()
+    }
+
+    fn value_advertisers(
+        &self,
+        cx: &mut RenderContext<'b>,
+        adverts: Vec<ValueAdvertiser<'_>>,
+    ) -> Node<'b> {
+        use dodrio::builder::*;
+
+        let details = |advert: &ValueAdvertiser<'_>| {
+            let name = String::from_str_in(advert.name, cx.bump).into_bump_str();
+            let description = match advert.description {
+                None => None,
+                Some(string) => Some(String::from_str_in(string, cx.bump).into_bump_str()),
+            };
+
+            let route = Route::Task(advert.task_id.clone());
+            let url = format!(in cx.bump, "{}", route).into_bump_str();
+
+            (name, description, url)
+        };
+
+        let icon = span(&cx)
+            .attr("class", "info")
+            .child(i(&cx).finish())
+            .finish();
+
+        let mut content = vec![icon];
+
+        if adverts.len() == 1 {
+            let (name, _, url) = details(adverts.get(0).unwrap_throw());
+
+            content.extend_from_slice(&[
+                text("The"),
+                a(&cx).attr("href", url).child(text(name)).finish(),
+                text("task can provide this value."),
+            ]);
+        } else {
+            let mut items = vec![];
+            for advert in &adverts {
+                let (name, description, url) = details(advert);
+
+                items.push(a(&cx).attr("href", url).child(text(name)).finish());
+
+                if let Some(description) = description {
+                    items.push(p(&cx).child(text(description)).finish());
+                }
+
+                items.push(hr(&cx).finish());
+            }
+            items.truncate(items.len() - 1);
+
+            let trigger = div(&cx)
+                .child(a(&cx).child(text("multiple tasks")).finish())
+                .finish();
+
+            let menu = div(&cx)
+                .attr("role", "menu")
+                .attr("class", "dropdown-menu")
+                .child(div(&cx).children(items).finish())
+                .finish();
+
+            let dropdown = div(&cx)
+                .attr("class", "menu")
+                .children([trigger, menu])
+                .finish();
+
+            content.extend_from_slice(&[
+                text("There are"),
+                dropdown,
+                text("that can provide this value."),
+            ]);
+        };
+
+        div(&cx)
+            .attr("class", "variable-advertisers")
+            .child(span(&cx).children(content).finish())
             .finish()
     }
 }

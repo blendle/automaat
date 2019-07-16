@@ -22,6 +22,8 @@
     @extend .modal-card-body;
     @extend .has-background-white-ter;
 
+    overflow: visible;
+
     p { @extend .content; }
     > div { @extend .container; }
   }

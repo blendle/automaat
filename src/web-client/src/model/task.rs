@@ -113,20 +113,43 @@ impl From<SearchTasksTasks> for Task {
     }
 }
 
-impl From<FetchTaskDetailsTask> for Task {
+impl From<FetchTaskDetailsTask> for Vec<Task> {
     fn from(input: FetchTaskDetailsTask) -> Self {
+        // let mut tasks = vec![];
+
+        let mut tasks: Self = input
+            .variables
+            .as_ref()
+            .unwrap_or(&vec![])
+            .iter()
+            .flat_map(|v| &v.value_advertisers)
+            .map(|a| Task {
+                details: SearchTasksTasks {
+                    id: a.id.to_owned(),
+                    name: a.name.to_owned(),
+                    description: a.description.clone(),
+                },
+                active_job_idx: None,
+                variables: None,
+                jobs: vec![],
+            })
+            .collect();
+
         let details = SearchTasksTasks {
             id: input.id.clone(),
             name: input.name.clone(),
             description: input.description.clone(),
         };
 
-        Self {
+        let task = Task {
             details,
             active_job_idx: None,
             variables: input.variables,
             jobs: vec![],
-        }
+        };
+
+        tasks.push(task);
+        tasks
     }
 }
 
@@ -152,6 +175,12 @@ impl Id {
 impl fmt::Display for Id {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(self.0.as_str())
+    }
+}
+
+impl From<String> for Id {
+    fn from(id: String) -> Self {
+        Self(id)
     }
 }
 
