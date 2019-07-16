@@ -106,7 +106,7 @@ where
                 // Auto-focus the search bar.
                 nav.focus_search();
 
-                // Unset the active task when visiting the home page.
+                // Unset all active tasks when visiting the home page.
                 //
                 // It is possible to hit this path when you use the browser's
                 // "back" button to go back from the task details view to the
@@ -115,7 +115,7 @@ where
                 // The "regular" ways of dismissing the details view (by using
                 // the controller's `close_active_task` method) already unloads
                 // the active task. In that case, this is a no-op.
-                app.tasks_mut().unwrap_throw().disable_active_task();
+                app.tasks_mut().unwrap_throw().disable_all_active_tasks();
 
                 // Update the `navbar` statistics.
                 //

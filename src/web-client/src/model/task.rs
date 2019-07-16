@@ -113,26 +113,31 @@ impl From<SearchTasksTasks> for Task {
     }
 }
 
+impl<'a> From<variable::ValueAdvertiser<'a>> for Task {
+    fn from(input: variable::ValueAdvertiser<'a>) -> Self {
+        Self {
+            details: SearchTasksTasks {
+                id: input.task_id.to_owned().to_string(),
+                name: input.name.to_owned(),
+                description: input.description.map(str::to_owned),
+            },
+            active_job_idx: None,
+            variables: None,
+            jobs: vec![],
+        }
+    }
+}
+
 impl From<FetchTaskDetailsTask> for Vec<Task> {
     fn from(input: FetchTaskDetailsTask) -> Self {
-        // let mut tasks = vec![];
-
         let mut tasks: Self = input
             .variables
             .as_ref()
             .unwrap_or(&vec![])
             .iter()
             .flat_map(|v| &v.value_advertisers)
-            .map(|a| Task {
-                details: SearchTasksTasks {
-                    id: a.id.to_owned(),
-                    name: a.name.to_owned(),
-                    description: a.description.clone(),
-                },
-                active_job_idx: None,
-                variables: None,
-                jobs: vec![],
-            })
+            .map(Into::<variable::ValueAdvertiser<'_>>::into)
+            .map(Into::into)
             .collect();
 
         let details = SearchTasksTasks {

@@ -105,8 +105,9 @@ impl task::Actions for Controller {
         // short-circuit: if the task exists, and has all the required details,
         // activate it, schedule a render and return.
         if let Ok(mut tasks) = app.tasks_mut() {
-            if let Ok(task) = tasks.activate_task(id.clone()) {
+            if let Some(task) = tasks.get(&id) {
                 if task.variables().is_some() {
+                    let _ = tasks.activate_task(id).unwrap_throw();
                     return Box::new(vdom.render().map_err(|_| ()));
                 }
             }
@@ -240,7 +241,10 @@ impl task::Actions for Controller {
         }
 
         tasks.disable_active_task();
-        Route::Home.set_path();
+        match tasks.active_task() {
+            Some(task) => Route::Task(task.id()).set_path(),
+            None => Route::Home.set_path(),
+        }
 
         vdom.schedule_render();
     }

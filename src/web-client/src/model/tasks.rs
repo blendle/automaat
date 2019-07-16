@@ -19,11 +19,19 @@ pub(crate) struct Tasks {
     /// shown in the UI based on the active search query.
     tasks: HashMap<Id, Task>,
 
-    /// The current active task.
+    /// A list of active tasks.
     ///
-    /// This means the task is open in the UI, and might be running on the
-    /// server.
-    active_task_id: Option<Id>,
+    /// An active task is one that is either open, or was open while navigating
+    /// towards a different task.
+    ///
+    /// You can think of this list as "breadcrumbs" of tasks that have been
+    /// visited starting from the first task opened from the home screen.
+    ///
+    /// When the home page is active, this list is emptied.
+    ///
+    /// The list is ordered from oldest to newest active task, meaning the last
+    /// task in the list is the currently active task.
+    active_task_ids: Vec<Id>,
 
     /// A list of Ids that represents a subset of stored tasks to be shown in
     /// the search view.
@@ -36,9 +44,18 @@ impl Tasks {
     ///
     /// This method returns an `Err` if there is no task matching the provided
     /// ID.
+    ///
+    /// If the provided task ID matches the last active task ID, activation is
+    /// skipped, and this method is a no-op.
     pub(crate) fn activate_task(&mut self, id: Id) -> Result<&Task, ()> {
         if let Some(task) = self.tasks.get(&id) {
-            self.active_task_id = Some(id);
+            if let Some(active_task) = self.active_task() {
+                if active_task.id() == id {
+                    return Ok(task);
+                }
+            }
+
+            self.active_task_ids.push(id);
             Ok(task)
         } else {
             Err(())
@@ -47,17 +64,17 @@ impl Tasks {
 
     /// Get a reference to the active task, if any.
     pub(crate) fn active_task(&self) -> Option<&Task> {
-        match self.active_task_id {
+        match self.active_task_ids.last() {
             None => None,
-            Some(ref id) => self.tasks.get(id),
+            Some(id) => self.tasks.get(id),
         }
     }
 
     /// Get a mutable reference to the active task, if any.
     pub(crate) fn active_task_mut(&mut self) -> Option<&mut Task> {
-        match self.active_task_id {
+        match self.active_task_ids.last() {
             None => None,
-            Some(ref id) => self.tasks.get_mut(id),
+            Some(id) => self.tasks.get_mut(id),
         }
     }
 
@@ -93,7 +110,15 @@ impl Tasks {
             task.deactivate_job();
         }
 
-        self.active_task_id = None;
+        let _ = self.active_task_ids.pop();
+    }
+
+    /// Disable all active tasks, creating an empty stack.
+    pub(crate) fn disable_all_active_tasks(&mut self) {
+        while let Some(task) = self.active_task_mut() {
+            task.deactivate_job();
+            let _ = self.active_task_ids.pop();
+        }
     }
 
     /// Sets the active task filter, based on a set of provided task IDs.
@@ -154,7 +179,7 @@ impl From<Vec<SearchTasksTasks>> for Tasks {
 
         Self {
             tasks,
-            active_task_id: None,
+            active_task_ids: vec![],
             filtered_task_ids: None,
         }
     }
