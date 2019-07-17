@@ -92,7 +92,7 @@ where
             if job.is_completed() {
                 body = body.child(self.results(cx))
             }
-        } else if !self.task.jobs.is_empty() {
+        } else if !self.task.finished_jobs().is_empty() {
             let id = self.task.id();
             let link = a(&cx)
                 .child(text("review the results of the last run"))

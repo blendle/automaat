@@ -100,6 +100,11 @@ impl Task {
             Some(idx) => self.jobs.get(idx),
         }
     }
+
+    /// Get all finished jobs (failed or succeeded)
+    pub(crate) fn finished_jobs(&self) -> Vec<&job::Job> {
+        self.jobs.iter().filter(|j| j.is_completed()).collect()
+    }
 }
 
 impl From<SearchTasksTasks> for Task {
