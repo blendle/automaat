@@ -73,7 +73,7 @@ use app::App;
 use dodrio::Vdom;
 use router::Router;
 use service::{GraphqlService, ShortcutService};
-use wasm_bindgen::{prelude::*, JsCast};
+use wasm_bindgen::prelude::*;
 
 /// Starting point of the application once loaded in the browser.
 #[wasm_bindgen(start)]
@@ -92,67 +92,8 @@ pub fn run() -> Result<(), JsValue> {
     let shortcut: ShortcutService = ShortcutService::default();
     shortcut.listen(vdom.weak());
 
-    raw_text_to_html();
-
     vdom.forget();
     Ok(())
-}
-
-/// This is a temporary solution for the fact that the virtual DOM library used
-/// ([Dodrio]) doesn't support injecting raw HTML into the DOM.
-///
-/// Instead, this function starts a [`MutationObserver`] to listen for raw
-/// HTML to be inserted into the DOM from tasks, it then takes that HTML as raw
-/// text, and inserts it as actual HTML elements into the DOM.
-///
-/// It happens fast enough (probably within the same render call) that there is
-/// no visual glitch, but if that does turn out to be the case, we can migrate
-/// the raw output into a hidden element, and take the content from there.
-///
-/// [Dordio]: https://github.com/fitzgen/dodrio
-/// [`MutationObserver`]: https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver
-fn raw_text_to_html() {
-    use web_sys::{HtmlElement, MutationObserver, MutationRecord};
-
-    let cb: Closure<dyn FnMut(js_sys::Array, MutationObserver)> =
-        Closure::wrap(Box::new(|records, _| {
-            let mut records = match js_sys::try_iter(&records).unwrap_throw() {
-                Some(records) => records,
-                None => return,
-            };
-
-            let record = match records.nth(0) {
-                Some(record) => record.unwrap_throw().unchecked_into::<MutationRecord>(),
-                None => return,
-            };
-
-            let node = js_sys::try_iter(&record.added_nodes())
-                .unwrap_throw()
-                .unwrap_throw()
-                .nth(0);
-
-            let el = match node.and_then(|n| n.unwrap_throw().dyn_into::<HtmlElement>().ok()) {
-                Some(el) => el,
-                None => return,
-            };
-
-            let body = match utils::try_child::<HtmlElement>(&el, "article > div:nth-child(2)") {
-                None => return,
-                Some(body) => body,
-            };
-
-            let raw_html = body.text_content().unwrap_throw();
-            body.set_inner_html(&raw_html);
-        }));
-
-    let mut options = web_sys::MutationObserverInit::new();
-    let _ = options.child_list(true).subtree(true);
-
-    let observer = web_sys::MutationObserver::new(cb.as_ref().unchecked_ref()).unwrap_throw();
-    cb.forget();
-    observer
-        .observe_with_options(&utils::element("body"), &options)
-        .unwrap_throw();
 }
 
 /// If the `console` feature is enabled, we enable functionality to log to the

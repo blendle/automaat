@@ -46,12 +46,9 @@
 
     article {
       @extend .message;
-      > div:first-child { @extend .message-header; }
 
-      > div:last-child {
-        @extend .message-body;
-        @extend .content;
-      }
+      .message-staging { display: none; }
+      .message-body { @extend .content; }
     }
   }
 

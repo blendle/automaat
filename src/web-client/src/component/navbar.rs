@@ -24,7 +24,7 @@ impl<C> Navbar<C> {
     /// Create a new Navbar component.
     pub(crate) fn new() -> Self {
         Self {
-            search_node: utils::try_element(".search input"),
+            search_node: utils::element(".search input"),
             _controller: PhantomData,
         }
     }

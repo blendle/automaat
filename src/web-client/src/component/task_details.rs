@@ -152,19 +152,21 @@ where
         let header = BString::from_str_in(title, cx.bump).into_bump_str();
         let body = BString::from_str_in(body.as_str(), cx.bump).into_bump_str();
 
+        let staging = div(&cx)
+            .attr("class", "message-staging")
+            .child(text(body))
+            .finish();
+
         let header = div(&cx)
             .attr("class", "message-header")
             .child(p(&cx).child(text(header)).finish())
             .finish();
 
-        let body = div(&cx)
-            .attr("class", "message-body")
-            .child(text(body))
-            .finish();
+        let body = div(&cx).attr("class", "message-body").finish();
 
         let details = article(&cx)
             .attr("class", class)
-            .children([header, body])
+            .children([staging, header, body])
             .finish();
 
         div(&cx)
@@ -241,9 +243,11 @@ where
                 let client = app.client.to_owned();
 
                 let id = id.clone();
+                let vdom2 = vdom.clone();
                 spawn_local({
                     C::run(root, vdom.clone(), id.clone(), map)
                         .and_then(move |job_id| C::poll_result(tasks, vdom, job_id, id, client))
+                        .and_then(move |_| C::render_task_details(vdom2))
                 });
 
                 event.prevent_default()

@@ -65,9 +65,9 @@ where
                         })
                         .map_err(|_| ()),
                     ),
-                    ENTER => {
-                        utils::element::<HtmlElement>(".task-details button[type=submit]").click()
-                    }
+                    ENTER => utils::element::<HtmlElement>(".task-details button[type=submit]")
+                        .unwrap_throw()
+                        .click(),
                     _ => return,
                 },
             }

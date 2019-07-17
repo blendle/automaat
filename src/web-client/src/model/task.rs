@@ -224,4 +224,14 @@ pub(crate) trait Actions {
 
     /// Sets the last job as the active job, if it isn't already.
     fn reactivate_last_job(root: &mut dyn RootRender, vdom: VdomWeak, id: Id);
+
+    /// This is a temporary solution for the fact that the virtual DOM library used
+    /// ([Dodrio]) doesn't support injecting raw HTML into the DOM.
+    ///
+    /// Whenever task details need to be rendered, this method should be called
+    /// instead, to make sure the raw escaped HTML is swapped with the correct
+    /// rendered HTML output.
+    ///
+    /// [Dordio]: https://github.com/fitzgen/dodrio
+    fn render_task_details(vdom: VdomWeak) -> Box<dyn Future<Item = (), Error = ()>>;
 }

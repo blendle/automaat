@@ -4,6 +4,7 @@
 use crate::model::{job, statistics, task, tasks};
 use crate::router::Route;
 use crate::service::GraphqlService;
+use crate::utils;
 use crate::App;
 use dodrio::{RootRender, VdomWeak};
 use futures::{future, prelude::*};
@@ -13,6 +14,7 @@ use std::rc::Rc;
 use std::time::Duration;
 use wasm_bindgen::UnwrapThrowExt;
 use wasm_timer::{Delay, Instant};
+use web_sys::HtmlElement;
 
 /// The main application controller.
 #[derive(Clone, Debug, Default)]
@@ -108,7 +110,7 @@ impl task::Actions for Controller {
             if let Some(task) = tasks.get(&id) {
                 if task.variables().is_some() {
                     let _ = tasks.activate_task(id).unwrap_throw();
-                    return Box::new(vdom.render().map_err(|_| ()));
+                    return Box::new(Self::render_task_details(vdom));
                 }
             }
         }
@@ -137,7 +139,7 @@ impl task::Actions for Controller {
                 tasks.append(new_tasks.unwrap_throw());
                 let _ = tasks.activate_task(id);
                 let _ = lock.replace(tasks);
-                vdom.render().map_err(|_| ())
+                Self::render_task_details(vdom)
             });
 
         Box::new(fut)
@@ -205,8 +207,7 @@ impl task::Actions for Controller {
                 };
 
                 task.activate_job(job);
-                vdom.schedule_render();
-                result.map_err(|_| ())
+                Self::render_task_details(vdom).then(|_| result.map_err(|_| ()))
             });
 
         Box::new(fut)
@@ -218,7 +219,23 @@ impl task::Actions for Controller {
         let task = tasks.get_mut(&id).unwrap_throw();
 
         task.activate_last_job();
-        vdom.schedule_render();
+        wasm_bindgen_futures::spawn_local(Self::render_task_details(vdom));
+    }
+
+    fn render_task_details(vdom: VdomWeak) -> Box<dyn Future<Item = (), Error = ()>> {
+        let fut = vdom.render().then(|_| {
+            if let Some(el) = utils::element::<HtmlElement>(".job-response .message-staging") {
+                let raw_html = el.text_content().unwrap_throw();
+
+                utils::element::<HtmlElement>(".job-response .message-body")
+                    .unwrap_throw()
+                    .set_inner_html(&raw_html);
+            };
+
+            Ok(())
+        });
+
+        Box::new(fut)
     }
 
     fn close_active_task(root: &mut dyn RootRender, vdom: VdomWeak) {
