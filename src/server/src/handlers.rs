@@ -1,9 +1,10 @@
-use crate::{Database, DatabasePool, GraphQLSchema};
+use crate::{GraphQLSchema, State};
 use actix_web::web::{block, Data, Json};
 use actix_web::{Error, HttpResponse};
 use futures::future::Future;
 use juniper::http::{graphiql, playground, GraphQLRequest};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 /// See: <https://tools.ietf.org/html/draft-inadarei-api-health-check-03>
 #[derive(Debug, Deserialize, Serialize)]
@@ -37,13 +38,12 @@ pub(super) fn playground() -> HttpResponse {
 }
 
 pub(super) fn graphql(
-    pool: Data<DatabasePool>,
+    state: Data<Arc<State>>,
     request: Json<GraphQLRequest>,
     schema: Data<GraphQLSchema>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
     block(move || {
-        let db = Database(pool.get().expect("valid database collection"));
-        let response = request.execute(&schema, &db);
+        let response = request.execute(&schema, &state);
         serde_json::to_string(&response)
     })
     .map_err(Into::into)

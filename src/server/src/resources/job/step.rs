@@ -13,8 +13,7 @@
 use crate::models::GlobalVariable;
 use crate::resources::{Job, Step};
 use crate::schema::job_steps;
-use crate::Database;
-use crate::Processor;
+use crate::{Processor, State};
 use automaat_core::Context;
 use chrono::prelude::*;
 use chrono::NaiveDateTime;
@@ -112,15 +111,15 @@ impl JobStep {
         serde_json::from_value(self.processor.clone()).ok()
     }
 
-    pub(crate) fn job(&self, conn: &Database) -> QueryResult<Job> {
+    pub(crate) fn job(&self, conn: &PgConnection) -> QueryResult<Job> {
         use crate::schema::jobs::dsl::*;
 
-        jobs.filter(id.eq(self.job_id)).first(&**conn)
+        jobs.filter(id.eq(self.job_id)).first(conn)
     }
 
     pub(crate) fn run(
         &mut self,
-        conn: &Database,
+        conn: &PgConnection,
         context: &Context,
         input: Option<&str>,
     ) -> Result<Option<String>, Box<dyn Error>> {
@@ -146,11 +145,11 @@ impl JobStep {
         }
     }
 
-    fn start(&mut self, conn: &Database) -> QueryResult<()> {
+    fn start(&mut self, conn: &PgConnection) -> QueryResult<()> {
         self.status = Status::Running;
         self.started_at = Some(Utc::now().naive_utc());
 
-        match self.save_changes::<Self>(&**conn) {
+        match self.save_changes::<Self>(conn) {
             Ok(_) => Ok(()),
             Err(err) => {
                 self.status = Status::Failed;
@@ -161,7 +160,7 @@ impl JobStep {
 
     fn finished(
         &mut self,
-        conn: &Database,
+        conn: &PgConnection,
         status: Status,
         output: Option<String>,
     ) -> QueryResult<()> {
@@ -169,7 +168,7 @@ impl JobStep {
         self.status = status;
         self.output = output;
 
-        self.save_changes::<Self>(&**conn).map(|_| ())
+        self.save_changes::<Self>(conn).map(|_| ())
     }
 
     /// Takes the associated job step processor, and formalizes its definition
@@ -178,7 +177,7 @@ impl JobStep {
         &mut self,
         input: Option<&str>,
         context: &Context,
-        conn: &Database,
+        conn: &PgConnection,
     ) -> Result<Processor, Box<dyn Error>> {
         let variables = self
             .job(conn)
@@ -186,7 +185,7 @@ impl JobStep {
             .map_err(Into::<Box<dyn Error>>::into)?;
 
         let global_variables: Vec<GlobalVariable> = GlobalVariable::all()
-            .get_results(&**conn)
+            .get_results(conn)
             .map_err(Into::<Box<dyn Error>>::into)?;
 
         let var = variables
@@ -337,7 +336,7 @@ impl<'a> NewJobStep<'a> {
     ///
     /// This method can return an error if the database insert failed, or if the
     /// associated processor is invalid.
-    pub(crate) fn add_to_job(self, conn: &Database, job: &Job) -> Result<(), Box<dyn Error>> {
+    pub(crate) fn add_to_job(self, conn: &PgConnection, job: &Job) -> Result<(), Box<dyn Error>> {
         use crate::schema::job_steps::dsl::*;
 
         self.processor.validate()?;
@@ -356,7 +355,7 @@ impl<'a> NewJobStep<'a> {
 
         diesel::insert_into(job_steps)
             .values(values)
-            .execute(&**conn)
+            .execute(conn)
             .map(|_| ())
             .map_err(Into::into)
     }
@@ -376,7 +375,7 @@ pub(crate) mod graphql {
     use super::*;
     use juniper::{object, FieldResult, ID};
 
-    #[object(Context = Database)]
+    #[object(Context = State)]
     impl JobStep {
         /// The unique identifier for a specific job step.
         fn id() -> ID {
@@ -442,8 +441,10 @@ pub(crate) mod graphql {
         /// 2. retry the request to try and get the relevant information,
         /// 3. disable parts of the application reliant on the information,
         /// 4. show a global error, and ask the user to retry.
-        fn job(context: &Database) -> FieldResult<Option<Job>> {
-            self.job(context).map(Some).map_err(Into::into)
+        fn job(context: &State) -> FieldResult<Option<Job>> {
+            let conn = context.pool.get()?;
+
+            self.job(&conn).map(Some).map_err(Into::into)
         }
     }
 

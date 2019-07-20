@@ -10,8 +10,7 @@ pub(crate) use job::step::{
 };
 pub(crate) use job::variable::{graphql::JobVariableInput, JobVariable, NewJobVariable};
 pub(crate) use job::{
-    graphql::CreateJobFromTaskInput, poll as poll_jobs, Job, NewJob,
-    StatusMapping as JobStatusMapping,
+    graphql::CreateJobFromTaskInput, Job, NewJob, StatusMapping as JobStatusMapping,
 };
 pub(crate) use step::{graphql::CreateStepInput, NewStep, Step};
 pub(crate) use task::{

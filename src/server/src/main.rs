@@ -58,21 +58,17 @@ mod models;
 mod processor;
 mod resources;
 mod schema;
+mod server;
+mod worker;
 
-use crate::graphql::{MutationRoot, QueryRoot, Schema};
-use crate::middleware::RemoveContentLengthHeader;
 use crate::processor::{Input as ProcessorInput, Processor};
-use actix_files::Files;
-use actix_web::{
-    http::header,
-    middleware::{Compress, DefaultHeaders},
-    web, App, HttpServer,
-};
+use crate::server::Server;
+use crate::worker::Worker;
 use diesel::pg::PgConnection;
 use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
 use diesel_migrations::embed_migrations;
-use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
-use std::{env, io, ops::Deref, sync::Arc, thread};
+use std::sync::Arc;
+use std::{env, ops::Deref};
 
 // TODO: rename `Database` to `State` and move this into the state object,
 // passing it along when needed.
@@ -95,84 +91,46 @@ impl Deref for Database {
     }
 }
 
-pub(crate) type DatabasePool = Pool<ConnectionManager<PgConnection>>;
-pub(crate) type GraphQLSchema = Arc<Schema>;
+// pub(crate) struct Config {
+//     pub(crate) encryption_token: String,
+// }
 
-fn main() -> io::Result<()> {
+// TODO: enable this in a separate commit
+// let config = Config {
+//     encryption_token: SERVER_SECRET.to_string(),
+// };
+
+pub(crate) struct State {
+    pub(crate) pool: DatabasePool,
+}
+
+pub(crate) type DatabasePool = Pool<ConnectionManager<PgConnection>>;
+pub(crate) type GraphQLSchema = Arc<graphql::Schema>;
+
+fn main() {
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL environment variable");
     let pool = Pool::new(ConnectionManager::new(database_url)).expect("valid database pool");
 
-    let conn = Database(pool.get().expect("valid database connection"));
-    embedded_migrations::run(&*conn).expect("successful database migration");
-    run_job_runner(conn);
+    let db = Database(pool.get().expect("valid database connection"));
+    embedded_migrations::run(&*db).expect("successful database migration");
 
-    server(pool)
-}
+    let state = State { pool };
 
-fn server(pool: DatabasePool) -> io::Result<()> {
-    let bind = env::var("SERVER_BIND").unwrap_or_else(|_| "0.0.0.0:8000".to_owned());
-    let schema = Arc::new(Schema::new(QueryRoot, MutationRoot));
-
-    let server = HttpServer::new(move || {
-        let root = env::var("SERVER_ROOT").unwrap_or_else(|_| "/public".to_owned());
-
-        App::new()
-            .wrap(Compress::default())
-            .wrap(
-                DefaultHeaders::new()
-                    .header(header::CACHE_CONTROL, "max-age=43200, must-revalidate")
-                    .header(header::VARY, "Accept-Encoding, Accept, Accept-Language"),
-            )
-            // TODO: Fix wrong Content-Length header value: https://git.io/fjV2B
-            .wrap(RemoveContentLengthHeader)
-            .data(pool.clone())
-            .data(schema.clone())
-            .route("/graphql/playground", web::get().to(handlers::playground))
-            .route("/graphql/graphiql", web::get().to(handlers::graphiql))
-            .route("/graphql", web::get().to_async(handlers::graphql))
-            .route("/graphql", web::post().to_async(handlers::graphql))
-            .route("/health", web::get().to(handlers::health))
-            .service(Files::new("/", root).index_file("index.html"))
-    });
-
-    let server = if let Ok(key_path) = env::var("SERVER_SSL_KEY_PATH") {
-        let chain_path =
-            env::var("SERVER_SSL_CHAIN_PATH").expect("SERVER_SSL_CHAIN_PATH environment variable");
-
-        let mut builder =
-            SslAcceptor::mozilla_modern(SslMethod::tls()).expect("valid SSL configuration");
-
-        builder
-            .set_private_key_file(key_path, SslFiletype::PEM)
-            .expect("valid certificate private key file");
-        builder
-            .set_certificate_chain_file(chain_path)
-            .expect("valid certificate chain file");
-
-        server.bind_ssl(bind, builder)?
-    } else {
-        server.bind(bind)?
+    let args: Vec<String> = env::args().collect();
+    let result = match args.get(1).map(String::as_str) {
+        Some("server") => Server::new(state).run_to_completion(),
+        Some("worker") => Worker::new(state).run_to_completion(),
+        _ => Err("usage: automaat [server|worker]".into()),
     };
 
-    server.run()
+    if let Err(err) = result {
+        println!("{}", err)
+    }
 }
 
 // Embeds all migrations inside the binary, so that they can be run when needed
 // on startup.
 embed_migrations!();
-
-// Takes a permanent database connection from the connection pool and starts a
-// new thread to continuously poll the database for new jobs that need to run.
-//
-// Currently there is no way for the thread to signal a panic situation to the
-// main thread, so if this thread dies because of a bug, new jobs won't run
-// anymore, but the server will keep running.
-//
-// TODO: split this off into its own crate. Possibly look into using Faktory to
-// schedule jobs.
-fn run_job_runner(conn: Database) {
-    let _ = thread::spawn(move || crate::resources::poll_jobs(&conn));
-}
 
 #[cfg(test)]
 mod tests {

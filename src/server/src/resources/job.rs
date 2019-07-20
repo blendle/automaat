@@ -7,15 +7,13 @@
 
 use crate::resources::{JobStep, JobStepStatus, JobVariable, NewJobStep, NewJobVariable, Task};
 use crate::schema::jobs;
-use crate::Database;
-use crate::SERVER_SECRET;
+use crate::{State, SERVER_SECRET};
 use automaat_core::Context;
 use diesel::prelude::*;
 use juniper::GraphQLEnum;
 use serde::{Deserialize, Serialize};
 use std::convert::{Into, TryInto};
 use std::error::Error;
-use std::thread;
 
 pub(crate) mod step;
 pub(crate) mod variable;
@@ -76,58 +74,60 @@ pub(crate) struct Job {
     // breaks the link between a job and the task it was created from. This
     // is acceptable, it just means the UI can't link back to the task.
     //
-    // Similarly, a job can be created separately from a reference, in which
-    // case this field is also `None`.
+    // Similarly, a job can be created separately from a task, in which case
+    // this field is also `None`.
     pub(crate) task_reference: Option<i32>,
 }
 
 impl Job {
-    pub(crate) fn as_running(&mut self, conn: &Database) -> QueryResult<Self> {
+    pub(crate) fn find_next_unlocked_pending(conn: &PgConnection) -> QueryResult<Option<Self>> {
+        jobs::table
+            .filter(jobs::status.eq(Status::Pending))
+            .order(jobs::id)
+            .for_update()
+            .skip_locked()
+            .first(conn)
+            .optional()
+    }
+
+    pub(crate) fn as_running(&mut self, conn: &PgConnection) -> QueryResult<Self> {
         self.status = Status::Running;
-        self.save_changes(&**conn)
+        self.save_changes(conn)
     }
 
-    pub(crate) fn as_failed(&mut self, conn: &Database) -> QueryResult<Self> {
+    pub(crate) fn as_failed(&mut self, conn: &PgConnection) -> QueryResult<Self> {
         self.status = Status::Failed;
-        self.save_changes(&**conn)
+        self.save_changes(conn)
     }
 
-    pub(crate) fn task(&self, conn: &Database) -> QueryResult<Option<Task>> {
+    pub(crate) fn task(&self, conn: &PgConnection) -> QueryResult<Option<Task>> {
         use crate::schema::tasks::dsl::*;
 
         match self.task_reference {
             None => Ok(None),
-            Some(task_id) => tasks.filter(id.eq(task_id)).first(&**conn).optional(),
+            Some(task_id) => tasks.filter(id.eq(task_id)).first(conn).optional(),
         }
     }
 
-    pub(crate) fn steps(&self, conn: &Database) -> QueryResult<Vec<JobStep>> {
+    pub(crate) fn steps(&self, conn: &PgConnection) -> QueryResult<Vec<JobStep>> {
         use crate::schema::job_steps::dsl::*;
 
-        JobStep::belonging_to(self)
-            .order(position.asc())
-            .load(&**conn)
+        JobStep::belonging_to(self).order(position.asc()).load(conn)
     }
 
-    pub(crate) fn variables(&self, conn: &Database) -> QueryResult<Vec<JobVariable>> {
+    pub(crate) fn variables(&self, conn: &PgConnection) -> QueryResult<Vec<JobVariable>> {
         use crate::schema::job_variables::dsl::*;
 
         let secret = SERVER_SECRET.as_str();
         JobVariable::belonging_to(self)
             .select((id, key, variable::pgp_sym_decrypt(value, secret), job_id))
-            .load(&**conn)
-    }
-
-    /// Mark a job ready to run by changing its status to `Pending`.
-    pub(crate) fn enqueue(&mut self, conn: &Database) -> QueryResult<Self> {
-        self.status = Status::Pending;
-        self.save_changes(&**conn)
+            .load(conn)
     }
 
     // TODO: implement some kind of `JobRunner`, that has a reference to
     // &Database, and then impl `Drop` so that if the runner stops, we can check
     // the result, and update the database based on the final status.
-    pub(crate) fn run(&self, conn: &Database) -> Result<(), Box<dyn Error>> {
+    pub(crate) fn run(&self, conn: &PgConnection) -> Result<(), Box<dyn Error>> {
         use crate::schema::jobs::dsl::*;
 
         let data: Option<String> = None;
@@ -143,45 +143,11 @@ impl Job {
         match steps.last() {
             Some(step) => diesel::update(self)
                 .set(status.eq(Status::from(step.status)))
-                .execute(&**conn)
+                .execute(conn)
                 .map(|_| ())
                 .map_err(Into::into),
             None => Ok(()),
         }
-    }
-}
-
-/// This is the top-level job runner that gets executed when the server is
-/// booted. It continuously polls the database for new jobs with status
-/// `Pending`, and will run them.
-pub(crate) fn poll(conn: &Database) {
-    loop {
-        // Fetch all pending jobs, and set them to running in one transaction,
-        // after that, we'll start running them one by one...
-        let result = conn
-            .transaction(|| {
-                use crate::schema::jobs::dsl::*;
-                jobs.filter(status.eq(Status::Pending))
-                    .load::<Job>(&**conn)?
-                    .into_iter()
-                    .map(|mut job| job.as_running(conn))
-                    .collect::<Result<Vec<_>, _>>()
-            })
-            .map_err(Into::into)
-            .and_then(|jobs| {
-                jobs.into_iter().try_for_each(|mut job| {
-                    job.run(conn).or_else(|err| {
-                        let _ = job.as_failed(conn)?;
-                        Err(err)
-                    })
-                })
-            });
-
-        if let Err(err) = result {
-            eprintln!("failed to run job: {}", err);
-        }
-
-        thread::sleep(std::time::Duration::from_millis(1000));
     }
 }
 
@@ -213,7 +179,7 @@ impl<'a> NewJob<'a> {
     }
 
     pub(crate) fn create_from_task(
-        conn: &Database,
+        conn: &PgConnection,
         task: &'a Task,
         variables: Vec<NewJobVariable<'a>>,
     ) -> Result<Job, Box<dyn Error>> {
@@ -256,7 +222,7 @@ impl<'a> NewJob<'a> {
     }
 
     /// Persist the job into the database.
-    pub(crate) fn create(self, conn: &Database) -> Result<Job, Box<dyn Error>> {
+    pub(crate) fn create(self, conn: &PgConnection) -> Result<Job, Box<dyn Error>> {
         use crate::schema::jobs::dsl::*;
 
         let mut job_name = self.name.to_owned();
@@ -272,13 +238,13 @@ impl<'a> NewJob<'a> {
 
             let task: Task = {
                 use crate::schema::tasks::dsl::*;
-                tasks.filter(id.eq(task_id)).first(&**conn)
+                tasks.filter(id.eq(task_id)).first(conn)
             }?;
 
             let total = jobs
                 .filter(task_reference.eq(task_id))
                 .count()
-                .get_result::<i64>(&**conn)?;
+                .get_result::<i64>(conn)?;
 
             job_name = format!("{} #{}", task.name, total + 1);
 
@@ -296,9 +262,7 @@ impl<'a> NewJob<'a> {
                 task_reference.eq(self.task_reference),
             );
 
-            let job = diesel::insert_into(jobs)
-                .values(&values)
-                .get_result(&**conn)?;
+            let job = diesel::insert_into(jobs).values(&values).get_result(conn)?;
 
             self.variables
                 .into_iter()
@@ -317,7 +281,11 @@ impl<'a> NewJob<'a> {
     /// This is only relevant if the job is created from an existing task, in
     /// which case the task can have any number of variables, and the provided
     /// job variables should match those.
-    fn validate_task_variables(&self, task: &Task, conn: &Database) -> Result<(), Box<dyn Error>> {
+    fn validate_task_variables(
+        &self,
+        task: &Task,
+        conn: &PgConnection,
+    ) -> Result<(), Box<dyn Error>> {
         let task_variables = task.variables(conn)?;
 
         let missing = task_variables
@@ -370,7 +338,7 @@ pub(crate) mod graphql {
         pub(crate) variables: Vec<JobVariableInput>,
     }
 
-    #[object(Context = Database)]
+    #[object(Context = State)]
     impl Job {
         /// The unique identifier for a specific job.
         fn id() -> ID {
@@ -412,8 +380,10 @@ pub(crate) mod graphql {
         /// 2. retry the request to try and get the relevant information,
         /// 3. disable parts of the application reliant on the information,
         /// 4. show a global error, and ask the user to retry.
-        fn steps(context: &Database) -> FieldResult<Option<Vec<JobStep>>> {
-            self.steps(context).map(Some).map_err(Into::into)
+        fn steps(context: &State) -> FieldResult<Option<Vec<JobStep>>> {
+            let conn = context.pool.get()?;
+
+            self.steps(&conn).map(Some).map_err(Into::into)
         }
 
         /// The task from which the job was created.
@@ -444,8 +414,10 @@ pub(crate) mod graphql {
         /// 2. retry the request to try and get the relevant information,
         /// 3. disable parts of the application reliant on the information,
         /// 4. show a global error, and ask the user to retry.
-        fn task(context: &Database) -> FieldResult<Option<Task>> {
-            self.task(context).map_err(Into::into)
+        fn task(context: &State) -> FieldResult<Option<Task>> {
+            let conn = context.pool.get()?;
+
+            self.task(&conn).map_err(Into::into)
         }
     }
 }

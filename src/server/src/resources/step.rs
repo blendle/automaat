@@ -7,7 +7,7 @@
 
 use crate::resources::Task;
 use crate::schema::steps;
-use crate::{Database, Processor};
+use crate::{Processor, State};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::convert::{AsRef, TryFrom, TryInto};
@@ -31,10 +31,10 @@ impl Step {
         serde_json::from_value(self.processor.clone())
     }
 
-    pub(crate) fn task(&self, conn: &Database) -> QueryResult<Task> {
+    pub(crate) fn task(&self, conn: &PgConnection) -> QueryResult<Task> {
         use crate::schema::tasks::dsl::*;
 
-        tasks.filter(id.eq(self.task_id)).first(&**conn)
+        tasks.filter(id.eq(self.task_id)).first(conn)
     }
 }
 
@@ -81,7 +81,11 @@ impl<'a> NewStep<'a> {
     ///
     /// This method can return an error if the database insert failed, or if the
     /// step processor cannot be serialized.
-    pub(crate) fn add_to_task(self, conn: &Database, task: &Task) -> Result<(), Box<dyn Error>> {
+    pub(crate) fn add_to_task(
+        self,
+        conn: &PgConnection,
+        task: &Task,
+    ) -> Result<(), Box<dyn Error>> {
         use crate::models::NewVariableAdvertisement;
 
         let values = (
@@ -97,11 +101,11 @@ impl<'a> NewStep<'a> {
         conn.transaction(move || {
             let step: Step = diesel::insert_into(steps::table)
                 .values(values)
-                .get_result(&**conn)
+                .get_result(conn)
                 .map_err(Into::<Box<dyn Error>>::into)?;
 
             if let Some(key) = advertised_key {
-                let _ = NewVariableAdvertisement::new(key, step.id).create(&**conn)?;
+                let _ = NewVariableAdvertisement::new(key, step.id).create(conn)?;
             };
 
             Ok(())
@@ -169,7 +173,7 @@ pub(crate) mod graphql {
         pub(crate) advertised_variable_key: Option<String>,
     }
 
-    #[object(Context = Database)]
+    #[object(Context = State)]
     impl Step {
         /// The unique identifier for a specific step.
         fn id() -> ID {
@@ -221,8 +225,10 @@ pub(crate) mod graphql {
         /// 2. retry the request to try and get the relevant information,
         /// 3. disable parts of the application reliant on the information,
         /// 4. show a global error, and ask the user to retry.
-        fn task(context: &Database) -> FieldResult<Option<Task>> {
-            self.task(context).map(Some).map_err(Into::into)
+        fn task(context: &State) -> FieldResult<Option<Task>> {
+            let conn = context.pool.get()?;
+
+            self.task(&conn).map(Some).map_err(Into::into)
         }
     }
 }

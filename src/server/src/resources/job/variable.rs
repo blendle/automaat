@@ -1,6 +1,5 @@
 use crate::resources::Job;
 use crate::schema::job_variables;
-use crate::Database;
 use crate::SERVER_SECRET;
 use diesel::prelude::*;
 use diesel::sql_types::{Bytea, Text};
@@ -49,7 +48,7 @@ impl<'a> NewJobVariable<'a> {
     /// reference.
     ///
     /// This method can return an error if the database insert failed.
-    pub(crate) fn add_to_job(self, conn: &Database, job: &Job) -> Result<(), Box<dyn Error>> {
+    pub(crate) fn add_to_job(self, conn: &PgConnection, job: &Job) -> Result<(), Box<dyn Error>> {
         use crate::schema::job_variables::dsl::*;
 
         self.validate_selection_constraint(conn, job)?;
@@ -63,7 +62,7 @@ impl<'a> NewJobVariable<'a> {
 
         diesel::insert_into(job_variables)
             .values(values)
-            .execute(&**conn)
+            .execute(conn)
             .map(|_| ())
             .map_err(Into::into)
     }
@@ -73,7 +72,7 @@ impl<'a> NewJobVariable<'a> {
     /// value matches that constraint.
     fn validate_selection_constraint(
         &self,
-        conn: &Database,
+        conn: &PgConnection,
         job: &Job,
     ) -> Result<(), Box<dyn Error>> {
         let task = match job.task(conn)? {

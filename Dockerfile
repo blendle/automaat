@@ -9,3 +9,4 @@ COPY ./src/web-client/static /public
 COPY ./target/x86_64-unknown-linux-musl/release/automaat-server /automaat
 
 ENTRYPOINT ["/automaat"]
+CMD ["server"]

@@ -17,7 +17,7 @@
 
 use crate::resources::{NewStep, NewVariable, Step, Variable};
 use crate::schema::tasks;
-use crate::Database;
+use crate::State;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::convert::{TryFrom, TryInto};
@@ -33,31 +33,31 @@ pub(crate) struct Task {
 }
 
 impl Task {
-    pub(crate) fn steps(&self, conn: &Database) -> QueryResult<Vec<Step>> {
+    pub(crate) fn steps(&self, conn: &PgConnection) -> QueryResult<Vec<Step>> {
         use crate::schema::steps::dsl::*;
 
         Step::belonging_to(self)
             .order((position.asc(), id.asc()))
-            .load(&**conn)
+            .load(conn)
     }
 
-    pub(crate) fn variables(&self, conn: &Database) -> QueryResult<Vec<Variable>> {
+    pub(crate) fn variables(&self, conn: &PgConnection) -> QueryResult<Vec<Variable>> {
         use crate::schema::variables::dsl::*;
 
-        Variable::belonging_to(self).order(id.desc()).load(&**conn)
+        Variable::belonging_to(self).order(id.desc()).load(conn)
     }
 
     /// Return the task variable matching the given key, if any.
     pub(crate) fn variable_with_key(
         &self,
         key: &str,
-        conn: &Database,
+        conn: &PgConnection,
     ) -> QueryResult<Option<Variable>> {
         use crate::schema::variables::dsl::key as vkey;
 
         Variable::belonging_to(self)
             .filter(vkey.eq(key))
-            .first(&**conn)
+            .first(conn)
             .optional()
     }
 }
@@ -110,16 +110,14 @@ impl<'a> NewTask<'a> {
     ///
     /// Persisting the data happens within a transaction that is rolled back if
     /// any data fails to persist.
-    pub(crate) fn create(self, conn: &Database) -> Result<Task, Box<dyn error::Error>> {
+    pub(crate) fn create(self, conn: &PgConnection) -> Result<Task, Box<dyn error::Error>> {
         conn.transaction(|| {
             use crate::schema::tasks::dsl::*;
 
             // waiting on https://github.com/diesel-rs/diesel/issues/860
             let values = (name.eq(&self.name), description.eq(&self.description));
 
-            let task = diesel::insert_into(tasks)
-                .values(values)
-                .get_result(&**conn)?;
+            let task = diesel::insert_into(tasks).values(values).get_result(conn)?;
 
             self.variables
                 .into_iter()
@@ -206,7 +204,7 @@ pub(crate) mod graphql {
         pub(crate) description: Option<String>,
     }
 
-    #[object(Context = Database)]
+    #[object(Context = State)]
     impl Task {
         /// The unique identifier for a specific task.
         fn id() -> ID {
@@ -243,8 +241,10 @@ pub(crate) mod graphql {
         /// 2. retry the request to try and get the relevant information,
         /// 3. disable parts of the application reliant on the information,
         /// 4. show a global error, and ask the user to retry.
-        fn variables(context: &Database) -> FieldResult<Option<Vec<Variable>>> {
-            self.variables(context).map(Some).map_err(Into::into)
+        fn variables(context: &State) -> FieldResult<Option<Vec<Variable>>> {
+            let conn = context.pool.get()?;
+
+            self.variables(&conn).map(Some).map_err(Into::into)
         }
 
         /// The steps belonging to the task.
@@ -263,8 +263,10 @@ pub(crate) mod graphql {
         /// 2. retry the request to try and get the relevant information,
         /// 3. disable parts of the application reliant on the information,
         /// 4. show a global error, and ask the user to retry.
-        fn steps(context: &Database) -> FieldResult<Option<Vec<Step>>> {
-            self.steps(context).map(Some).map_err(Into::into)
+        fn steps(context: &State) -> FieldResult<Option<Vec<Step>>> {
+            let conn = context.pool.get()?;
+
+            self.steps(&conn).map(Some).map_err(Into::into)
         }
     }
 

@@ -31,6 +31,7 @@ actix-web = { version = "1.0", default-features = false, features = [
 ] }
 automaat-core = { version = "0.1", path = "../core" }
 chrono = { version = "0.4", features = ["serde"] }
+ctrlc = { version = "3.0", features = ["termination"] }
 diesel = { version = "1.4", default-features = false, features = [
   "chrono",
   "postgres",

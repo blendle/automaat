@@ -3,59 +3,60 @@ use crate::resources::{
     CreateJobFromTaskInput, CreateTaskInput, GlobalVariableInput, Job, NewJob, NewJobVariable,
     NewTask, OnConflict, SearchTaskInput, Task,
 };
-use crate::Database;
+use crate::schema::*;
+use crate::State;
 use diesel::prelude::*;
-use juniper::{object, Context, FieldError, FieldResult, RootNode, ID};
+use juniper::{object, Context, FieldResult, RootNode, ID};
 use std::convert::TryFrom;
 
-impl Context for Database {}
+impl Context for State {}
 
 pub(crate) type Schema = RootNode<'static, QueryRoot, MutationRoot>;
 pub(crate) struct QueryRoot;
 pub(crate) struct MutationRoot;
 
-#[object(Context = Database)]
+#[object(Context = State)]
 impl QueryRoot {
     /// Return a list of tasks.
     ///
     /// You can optionally filter the returned set of tasks by providing the
     /// `SearchTaskInput` value.
-    fn tasks(context: &Database, search: Option<SearchTaskInput>) -> FieldResult<Vec<Task>> {
-        use crate::schema::tasks::dsl::*;
-        let conn = &context.0;
+    fn tasks(context: &State, search: Option<SearchTaskInput>) -> FieldResult<Vec<Task>> {
+        let conn = context.pool.get()?;
 
-        let mut query = tasks.order(id).into_boxed();
+        let mut query = tasks::table.order(tasks::id).into_boxed();
 
         if let Some(search) = &search {
             if let Some(search_name) = &search.name {
-                query = query.filter(name.ilike(format!("%{}%", search_name)));
+                query = query.filter(tasks::name.ilike(format!("%{}%", search_name)));
             };
 
             if let Some(search_description) = &search.description {
-                query = query.or_filter(description.ilike(format!("%{}%", search_description)));
+                query =
+                    query.or_filter(tasks::description.ilike(format!("%{}%", search_description)));
             };
         };
 
-        query.load(conn).map_err(Into::into)
+        query.load(&conn).map_err(Into::into)
     }
 
     /// Return a list of jobs.
-    fn jobs(context: &Database) -> FieldResult<Vec<Job>> {
-        use crate::schema::jobs::dsl::*;
+    fn jobs(context: &State) -> FieldResult<Vec<Job>> {
+        let conn = context.pool.get()?;
 
-        jobs.order(id).load(&**context).map_err(Into::into)
+        jobs::table.order(jobs::id).load(&conn).map_err(Into::into)
     }
 
     /// Return a single task, based on the task ID.
     ///
     /// This query can return `null` if no task is found matching the
     /// provided ID.
-    fn task(context: &Database, id: ID) -> FieldResult<Option<Task>> {
-        use crate::schema::tasks::dsl::{id as pid, tasks};
+    fn task(context: &State, id: ID) -> FieldResult<Option<Task>> {
+        let conn = context.pool.get()?;
 
-        tasks
-            .filter(pid.eq(id.parse::<i32>()?))
-            .first(&**context)
+        tasks::table
+            .filter(tasks::id.eq(id.parse::<i32>()?))
+            .first(&conn)
             .optional()
             .map_err(Into::into)
     }
@@ -64,36 +65,35 @@ impl QueryRoot {
     ///
     /// This query can return `null` if no job is found matching the
     /// provided ID.
-    fn job(context: &Database, id: ID) -> FieldResult<Option<Job>> {
-        use crate::schema::jobs::dsl::{id as tid, jobs};
+    fn job(context: &State, id: ID) -> FieldResult<Option<Job>> {
+        let conn = context.pool.get()?;
 
-        jobs.filter(tid.eq(id.parse::<i32>()?))
-            .first(&**context)
+        jobs::table
+            .filter(jobs::id.eq(id.parse::<i32>()?))
+            .first(&conn)
             .optional()
             .map_err(Into::into)
     }
 }
 
-#[object(Context = Database)]
+#[object(Context = State)]
 impl MutationRoot {
     /// Create a new task.
-    fn createTask(context: &Database, task: CreateTaskInput) -> FieldResult<Task> {
-        NewTask::try_from(&task)?
-            .create(context)
-            .map_err(Into::into)
+    fn createTask(context: &State, task: CreateTaskInput) -> FieldResult<Task> {
+        let conn = context.pool.get()?;
+
+        NewTask::try_from(&task)?.create(&conn).map_err(Into::into)
     }
 
     /// Create a job from an existing task ID.
     ///
     /// Once the job is created, it will be scheduled to run immediately.
-    fn createJobFromTask(context: &Database, job: CreateJobFromTaskInput) -> FieldResult<Job> {
-        let task: Task = {
-            use crate::schema::tasks::dsl::*;
+    fn createJobFromTask(context: &State, job: CreateJobFromTaskInput) -> FieldResult<Job> {
+        let conn = context.pool.get()?;
 
-            tasks
-                .filter(id.eq(job.task_id.parse::<i32>()?))
-                .first(&**context)
-        }?;
+        let task = tasks::table
+            .filter(tasks::id.eq(job.task_id.parse::<i32>()?))
+            .first(&conn)?;
 
         let variables = job
             .variables
@@ -101,12 +101,7 @@ impl MutationRoot {
             .map(Into::into)
             .collect::<Vec<NewJobVariable<'_>>>();
 
-        let mut new_job = NewJob::create_from_task(context, &task, variables)
-            .map_err(Into::<FieldError>::into)?;
-
-        // TODO: when we have scheduling, we probably want this to be optional,
-        // so that a job isn't always scheduled instantly.
-        new_job.enqueue(context).map_err(Into::into)
+        NewJob::create_from_task(&conn, &task, variables).map_err(Into::into)
     }
 
     /// Create a new global variable.
@@ -117,16 +112,14 @@ impl MutationRoot {
     /// By default, this mutation will return an error if the variable key
     /// already exists. If you want to override an existing key, set the
     /// `onConflict` key to `UPDATE`.
-    fn createGlobalVariable(
-        context: &Database,
-        variable: GlobalVariableInput,
-    ) -> FieldResult<bool> {
+    fn createGlobalVariable(context: &State, variable: GlobalVariableInput) -> FieldResult<bool> {
         use OnConflict::*;
+        let conn = context.pool.get()?;
 
         let global_variable = NewGlobalVariable::from(&variable);
         let global_variable = match &variable.on_conflict.as_ref().unwrap_or(&Abort) {
-            Abort => global_variable.create(&**context),
-            Update => global_variable.create_or_update(&**context),
+            Abort => global_variable.create(&conn),
+            Update => global_variable.create_or_update(&conn),
         };
 
         global_variable.map(|_| true).map_err(Into::into)
