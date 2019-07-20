@@ -1,24 +1,38 @@
 use crate::graphql::{MutationRoot, QueryRoot, Schema};
 use crate::handlers;
 use crate::middleware::RemoveContentLengthHeader;
-use crate::State;
 use actix_files::Files;
 use actix_web::{
     http::header,
     middleware::{Compress, DefaultHeaders},
     web, App, HttpServer,
 };
+use diesel::pg::PgConnection;
+use diesel::r2d2::{ConnectionManager, Pool};
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use std::sync::Arc;
 use std::{env, error::Error};
+
+pub(crate) type DatabasePool = Pool<ConnectionManager<PgConnection>>;
+
+pub(crate) struct State {
+    pub(crate) pool: DatabasePool,
+}
 
 pub(crate) struct Server {
     state: State,
 }
 
 impl Server {
-    pub(crate) const fn new(state: State) -> Self {
-        Self { state }
+    pub(crate) fn from_environment() -> Result<Self, Box<dyn Error>> {
+        let database_url = env::var("DATABASE_URL")?;
+        let pool = Pool::new(ConnectionManager::new(database_url))?;
+
+        crate::embedded_migrations::run(&pool.get()?)?;
+
+        Ok(Self {
+            state: State { pool },
+        })
     }
 
     pub(crate) fn run_to_completion(self) -> Result<(), Box<dyn Error>> {

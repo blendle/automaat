@@ -1,4 +1,5 @@
-use crate::{GraphQLSchema, State};
+use crate::graphql::Schema;
+use crate::State;
 use actix_web::web::{block, Data, Json};
 use actix_web::{Error, HttpResponse};
 use futures::future::Future;
@@ -40,7 +41,7 @@ pub(super) fn playground() -> HttpResponse {
 pub(super) fn graphql(
     state: Data<Arc<State>>,
     request: Json<GraphQLRequest>,
-    schema: Data<GraphQLSchema>,
+    schema: Data<Arc<Schema>>,
 ) -> impl Future<Item = HttpResponse, Error = Error> {
     block(move || {
         let response = request.execute(&schema, &state);

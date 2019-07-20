@@ -62,13 +62,10 @@ mod server;
 mod worker;
 
 use crate::processor::{Input as ProcessorInput, Processor};
-use crate::server::Server;
+use crate::server::{Server, State};
 use crate::worker::Worker;
-use diesel::pg::PgConnection;
-use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
 use diesel_migrations::embed_migrations;
-use std::sync::Arc;
-use std::{env, ops::Deref};
+use std::env;
 
 // TODO: rename `Database` to `State` and move this into the state object,
 // passing it along when needed.
@@ -80,50 +77,15 @@ lazy_static::lazy_static! {
         .unwrap_or_else(|_| "default secret".to_owned());
 }
 
-/// The main database connection pool shared across all threads.
-pub(crate) struct Database(PooledConnection<ConnectionManager<PgConnection>>);
-
-impl Deref for Database {
-    type Target = PgConnection;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-// pub(crate) struct Config {
-//     pub(crate) encryption_token: String,
-// }
-
-// TODO: enable this in a separate commit
-// let config = Config {
-//     encryption_token: SERVER_SECRET.to_string(),
-// };
-
-pub(crate) struct State {
-    pub(crate) pool: DatabasePool,
-}
-
-pub(crate) type DatabasePool = Pool<ConnectionManager<PgConnection>>;
-pub(crate) type GraphQLSchema = Arc<graphql::Schema>;
-
 fn main() {
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL environment variable");
-    let pool = Pool::new(ConnectionManager::new(database_url)).expect("valid database pool");
-
-    let db = Database(pool.get().expect("valid database connection"));
-    embedded_migrations::run(&*db).expect("successful database migration");
-
-    let state = State { pool };
-
     let args: Vec<String> = env::args().collect();
-    let result = match args.get(1).map(String::as_str) {
-        Some("server") => Server::new(state).run_to_completion(),
-        Some("worker") => Worker::new(state).run_to_completion(),
+    let run = || match args.get(1).map(String::as_str) {
+        Some("server") => Server::from_environment()?.run_to_completion(),
+        Some("worker") => Worker::from_environment()?.run_to_completion(),
         _ => Err("usage: automaat [server|worker]".into()),
     };
 
-    if let Err(err) = result {
+    if let Err(err) = run() {
         println!("{}", err)
     }
 }
