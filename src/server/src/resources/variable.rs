@@ -25,7 +25,7 @@
 
 use crate::resources::Task;
 use crate::schema::variables;
-use crate::State;
+use crate::server::RequestState;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::convert::{AsRef, TryFrom};
@@ -185,7 +185,7 @@ pub(crate) mod graphql {
         pub(crate) selection: Option<Vec<String>>,
     }
 
-    #[object(Context = State)]
+    #[object(Context = RequestState)]
     impl Variable {
         /// The unique identifier for a specific variable.
         fn id() -> ID {
@@ -252,13 +252,12 @@ pub(crate) mod graphql {
         /// 2. retry the request to try and get the relevant information,
         /// 3. disable parts of the application reliant on the information,
         /// 4. show a global error, and ask the user to retry.
-        fn task(context: &State) -> FieldResult<Option<Task>> {
+        fn task(context: &RequestState) -> FieldResult<Option<Task>> {
             use crate::schema::tasks::dsl::*;
-            let conn = context.pool.get()?;
 
             tasks
                 .filter(id.eq(self.task_id))
-                .first(&conn)
+                .first(&context.conn)
                 .map(Some)
                 .map_err(Into::into)
         }
@@ -273,11 +272,10 @@ pub(crate) mod graphql {
         /// Clients can use this list to help someone using a task that needs
         /// this variable by guiding them to another task that can provide the
         /// value for this variable.
-        fn value_advertisers(context: &State) -> FieldResult<Vec<Task>> {
+        fn value_advertisers(context: &RequestState) -> FieldResult<Vec<Task>> {
             use crate::models::VariableAdvertisement;
             use crate::schema::{steps, tasks, variable_advertisements};
             use diesel::dsl::any;
-            let conn = context.pool.get()?;
 
             let adverts = VariableAdvertisement::by_key(self.key.as_ref())
                 .select(variable_advertisements::step_id);
@@ -288,7 +286,7 @@ pub(crate) mod graphql {
 
             tasks::table
                 .filter(tasks::id.eq(any(steps)))
-                .get_results(&conn)
+                .get_results(&context.conn)
                 .map_err(Into::into)
         }
     }

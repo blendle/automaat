@@ -7,7 +7,7 @@
 
 use crate::resources::{JobStep, JobStepStatus, JobVariable, NewJobStep, NewJobVariable, Task};
 use crate::schema::jobs;
-use crate::{State, ENCRYPTION_SECRET};
+use crate::{server::RequestState, ENCRYPTION_SECRET};
 use automaat_core::Context;
 use diesel::prelude::*;
 use juniper::GraphQLEnum;
@@ -338,7 +338,7 @@ pub(crate) mod graphql {
         pub(crate) variables: Vec<JobVariableInput>,
     }
 
-    #[object(Context = State)]
+    #[object(Context = RequestState)]
     impl Job {
         /// The unique identifier for a specific job.
         fn id() -> ID {
@@ -380,10 +380,8 @@ pub(crate) mod graphql {
         /// 2. retry the request to try and get the relevant information,
         /// 3. disable parts of the application reliant on the information,
         /// 4. show a global error, and ask the user to retry.
-        fn steps(context: &State) -> FieldResult<Option<Vec<JobStep>>> {
-            let conn = context.pool.get()?;
-
-            self.steps(&conn).map(Some).map_err(Into::into)
+        fn steps(context: &RequestState) -> FieldResult<Option<Vec<JobStep>>> {
+            self.steps(&context.conn).map(Some).map_err(Into::into)
         }
 
         /// The task from which the job was created.
@@ -414,10 +412,8 @@ pub(crate) mod graphql {
         /// 2. retry the request to try and get the relevant information,
         /// 3. disable parts of the application reliant on the information,
         /// 4. show a global error, and ask the user to retry.
-        fn task(context: &State) -> FieldResult<Option<Task>> {
-            let conn = context.pool.get()?;
-
-            self.task(&conn).map_err(Into::into)
+        fn task(context: &RequestState) -> FieldResult<Option<Task>> {
+            self.task(&context.conn).map_err(Into::into)
         }
     }
 }

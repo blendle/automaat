@@ -62,7 +62,7 @@ mod server;
 mod worker;
 
 use crate::processor::{Input as ProcessorInput, Processor};
-use crate::server::{Server, State};
+use crate::server::Server;
 use crate::worker::Worker;
 use diesel_migrations::embed_migrations;
 use std::env;

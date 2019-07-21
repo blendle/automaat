@@ -1,17 +1,97 @@
 use crate::graphql::{MutationRoot, QueryRoot, Schema};
 use crate::handlers;
 use crate::middleware::RemoveContentLengthHeader;
+use crate::models::Session;
 use actix_files::Files;
+use actix_web::error::BlockingError;
 use actix_web::{
-    http::header,
+    http::{header, StatusCode},
     middleware::{Compress, DefaultHeaders},
-    web, App, HttpServer,
+    web, App, HttpResponse, HttpServer, ResponseError,
 };
 use diesel::pg::PgConnection;
-use diesel::r2d2::{ConnectionManager, Pool};
+use diesel::r2d2::{ConnectionManager, Pool, PooledConnection};
 use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use std::sync::Arc;
-use std::{env, error::Error};
+use std::{env, error::Error, fmt};
+
+pub(crate) struct RequestState {
+    pub(crate) conn: PooledConnection<ConnectionManager<PgConnection>>,
+    pub(crate) _session: Session,
+}
+
+impl RequestState {
+    pub(crate) const fn new(
+        conn: PooledConnection<ConnectionManager<PgConnection>>,
+        session: Session,
+    ) -> Self {
+        Self {
+            conn,
+            _session: session,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) enum ServerError {
+    Authentication,
+    Json(serde_json::Error),
+    Internal(String),
+}
+
+impl fmt::Display for ServerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let message = match self {
+            ServerError::Authentication => "Unauthorized".to_owned(),
+            ServerError::Json(err) => err.to_string(),
+            ServerError::Internal(string) => string.to_owned(),
+        };
+
+        write!(f, r#"{{ "errors": [{{ "message": "{}" }}] }}"#, message)
+    }
+}
+
+impl ResponseError for ServerError {
+    fn error_response(&self) -> HttpResponse {
+        let code = match self {
+            ServerError::Authentication => StatusCode::UNAUTHORIZED,
+            ServerError::Json(_) => StatusCode::BAD_REQUEST,
+            ServerError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        };
+
+        HttpResponse::new(code)
+    }
+}
+
+impl From<serde_json::Error> for ServerError {
+    fn from(err: serde_json::Error) -> Self {
+        ServerError::Json(err)
+    }
+}
+
+impl<T> From<BlockingError<T>> for ServerError
+where
+    T: Into<ServerError> + fmt::Debug,
+{
+    fn from(err: BlockingError<T>) -> Self {
+        match err {
+            BlockingError::Error(err) => err.into(),
+            BlockingError::Canceled => ServerError::Internal("canceled".to_owned()),
+        }
+    }
+}
+
+pub(crate) trait InternalServerError: fmt::Display {}
+impl InternalServerError for r2d2::Error {}
+
+impl<T> From<T> for ServerError
+where
+    T: InternalServerError,
+{
+    fn from(err: T) -> Self {
+        ServerError::Internal(err.to_string())
+    }
+}
 
 pub(crate) type DatabasePool = Pool<ConnectionManager<PgConnection>>;
 

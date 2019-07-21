@@ -17,7 +17,7 @@
 
 use crate::resources::{NewStep, NewVariable, Step, Variable};
 use crate::schema::tasks;
-use crate::State;
+use crate::server::RequestState;
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::convert::{TryFrom, TryInto};
@@ -204,7 +204,7 @@ pub(crate) mod graphql {
         pub(crate) description: Option<String>,
     }
 
-    #[object(Context = State)]
+    #[object(Context = RequestState)]
     impl Task {
         /// The unique identifier for a specific task.
         fn id() -> ID {
@@ -241,10 +241,8 @@ pub(crate) mod graphql {
         /// 2. retry the request to try and get the relevant information,
         /// 3. disable parts of the application reliant on the information,
         /// 4. show a global error, and ask the user to retry.
-        fn variables(context: &State) -> FieldResult<Option<Vec<Variable>>> {
-            let conn = context.pool.get()?;
-
-            self.variables(&conn).map(Some).map_err(Into::into)
+        fn variables(context: &RequestState) -> FieldResult<Option<Vec<Variable>>> {
+            self.variables(&context.conn).map(Some).map_err(Into::into)
         }
 
         /// The steps belonging to the task.
@@ -263,10 +261,8 @@ pub(crate) mod graphql {
         /// 2. retry the request to try and get the relevant information,
         /// 3. disable parts of the application reliant on the information,
         /// 4. show a global error, and ask the user to retry.
-        fn steps(context: &State) -> FieldResult<Option<Vec<Step>>> {
-            let conn = context.pool.get()?;
-
-            self.steps(&conn).map(Some).map_err(Into::into)
+        fn steps(context: &RequestState) -> FieldResult<Option<Vec<Step>>> {
+            self.steps(&context.conn).map(Some).map_err(Into::into)
         }
     }
 

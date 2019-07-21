@@ -13,7 +13,7 @@
 use crate::models::GlobalVariable;
 use crate::resources::{Job, Step};
 use crate::schema::job_steps;
-use crate::{Processor, State};
+use crate::{server::RequestState, Processor};
 use automaat_core::Context;
 use chrono::prelude::*;
 use chrono::NaiveDateTime;
@@ -375,7 +375,7 @@ pub(crate) mod graphql {
     use super::*;
     use juniper::{object, FieldResult, ID};
 
-    #[object(Context = State)]
+    #[object(Context = RequestState)]
     impl JobStep {
         /// The unique identifier for a specific job step.
         fn id() -> ID {
@@ -441,10 +441,8 @@ pub(crate) mod graphql {
         /// 2. retry the request to try and get the relevant information,
         /// 3. disable parts of the application reliant on the information,
         /// 4. show a global error, and ask the user to retry.
-        fn job(context: &State) -> FieldResult<Option<Job>> {
-            let conn = context.pool.get()?;
-
-            self.job(&conn).map(Some).map_err(Into::into)
+        fn job(context: &RequestState) -> FieldResult<Option<Job>> {
+            self.job(&context.conn).map(Some).map_err(Into::into)
         }
     }
 

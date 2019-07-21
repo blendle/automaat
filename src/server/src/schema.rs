@@ -81,6 +81,13 @@ table! {
     }
 }
 
+table! {
+    sessions (id) {
+        id -> Integer,
+        token -> Uuid,
+    }
+}
+
 joinable!(steps -> tasks (task_id));
 joinable!(job_steps -> jobs (job_id));
 joinable!(job_variables -> jobs (job_id));
@@ -96,5 +103,6 @@ allow_tables_to_appear_in_same_query!(
     jobs,
     variables,
     variable_advertisements,
-    global_variables
+    global_variables,
+    sessions,
 );

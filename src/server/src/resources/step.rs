@@ -7,7 +7,7 @@
 
 use crate::resources::Task;
 use crate::schema::steps;
-use crate::{Processor, State};
+use crate::{server::RequestState, Processor};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::convert::{AsRef, TryFrom, TryInto};
@@ -173,7 +173,7 @@ pub(crate) mod graphql {
         pub(crate) advertised_variable_key: Option<String>,
     }
 
-    #[object(Context = State)]
+    #[object(Context = RequestState)]
     impl Step {
         /// The unique identifier for a specific step.
         fn id() -> ID {
@@ -225,10 +225,8 @@ pub(crate) mod graphql {
         /// 2. retry the request to try and get the relevant information,
         /// 3. disable parts of the application reliant on the information,
         /// 4. show a global error, and ask the user to retry.
-        fn task(context: &State) -> FieldResult<Option<Task>> {
-            let conn = context.pool.get()?;
-
-            self.task(&conn).map(Some).map_err(Into::into)
+        fn task(context: &RequestState) -> FieldResult<Option<Task>> {
+            self.task(&context.conn).map(Some).map_err(Into::into)
         }
     }
 }
