@@ -67,14 +67,9 @@ use crate::worker::Worker;
 use diesel_migrations::embed_migrations;
 use std::env;
 
-// TODO: rename `Database` to `State` and move this into the state object,
-// passing it along when needed.
-//
-// TODO: when we have proper logging, warn when no secret is provided,
-// potentially refuse to start in non-debug mode.
 lazy_static::lazy_static! {
-    static ref SERVER_SECRET: String = env::var("SERVER_SECRET")
-        .unwrap_or_else(|_| "default secret".to_owned());
+    static ref ENCRYPTION_SECRET: String = env::var("ENCRYPTION_SECRET")
+        .expect("ENCRYPTION_SECRET environment variable not set");
 }
 
 fn main() {

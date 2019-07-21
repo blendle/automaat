@@ -7,7 +7,7 @@
 
 use crate::resources::{JobStep, JobStepStatus, JobVariable, NewJobStep, NewJobVariable, Task};
 use crate::schema::jobs;
-use crate::{State, SERVER_SECRET};
+use crate::{State, ENCRYPTION_SECRET};
 use automaat_core::Context;
 use diesel::prelude::*;
 use juniper::GraphQLEnum;
@@ -118,7 +118,7 @@ impl Job {
     pub(crate) fn variables(&self, conn: &PgConnection) -> QueryResult<Vec<JobVariable>> {
         use crate::schema::job_variables::dsl::*;
 
-        let secret = SERVER_SECRET.as_str();
+        let secret = ENCRYPTION_SECRET.as_str();
         JobVariable::belonging_to(self)
             .select((id, key, variable::pgp_sym_decrypt(value, secret), job_id))
             .load(conn)

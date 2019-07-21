@@ -1,6 +1,6 @@
 use crate::resources::Job;
 use crate::schema::job_variables;
-use crate::SERVER_SECRET;
+use crate::ENCRYPTION_SECRET;
 use diesel::prelude::*;
 use diesel::sql_types::{Bytea, Text};
 use serde::{Deserialize, Serialize};
@@ -53,7 +53,7 @@ impl<'a> NewJobVariable<'a> {
 
         self.validate_selection_constraint(conn, job)?;
 
-        let secret = SERVER_SECRET.as_str();
+        let secret = ENCRYPTION_SECRET.as_str();
         let values = (
             key.eq(&self.key),
             value.eq(pgp_sym_encrypt(&self.value, secret)),

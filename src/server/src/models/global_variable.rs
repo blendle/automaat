@@ -1,5 +1,5 @@
 use crate::schema::global_variables;
-use crate::SERVER_SECRET;
+use crate::ENCRYPTION_SECRET;
 use diesel::prelude::*;
 use diesel::sql_types::{Bytea, Text};
 
@@ -47,7 +47,7 @@ impl<'a> NewGlobalVariable<'a> {
     pub(crate) fn new(key: &'a str, value: &'a str) -> Self {
         Self {
             key,
-            value: pgp_sym_encrypt(value, SERVER_SECRET.as_str()),
+            value: pgp_sym_encrypt(value, ENCRYPTION_SECRET.as_str()),
         }
     }
 
@@ -94,7 +94,7 @@ fn all_columns() -> AllColumns {
     (
         global_variables::id,
         global_variables::key,
-        pgp_sym_decrypt(global_variables::value, SERVER_SECRET.as_str()),
+        pgp_sym_decrypt(global_variables::value, ENCRYPTION_SECRET.as_str()),
     )
 }
 
