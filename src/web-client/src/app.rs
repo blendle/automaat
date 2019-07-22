@@ -3,8 +3,9 @@
 
 use crate::component;
 use crate::controller::Controller;
-use crate::model::{job, statistics, task, tasks};
-use crate::service::GraphqlService;
+use crate::model::{job, session, statistics, task, tasks};
+use crate::router::Route;
+use crate::service::{CookieService, GraphqlService};
 use dodrio::{Node, Render, RenderContext};
 use std::cell::{Ref, RefCell, RefMut};
 use std::marker::PhantomData;
@@ -15,6 +16,9 @@ use wasm_bindgen::UnwrapThrowExt;
 pub(crate) struct App<C = Controller> {
     /// The GraphQL client to fetch and mutate data.
     pub(crate) client: GraphqlService,
+
+    /// The cookie service to modify cookie data.
+    pub(crate) cookie: CookieService,
 
     /// All tasks fetched since the start of the application session.
     ///
@@ -33,9 +37,10 @@ pub(crate) struct App<C = Controller> {
 
 impl<C> App<C> {
     /// Create a new application instance, with the provided GraphQL service.
-    pub(crate) fn new(client: GraphqlService) -> Self {
+    pub(crate) fn new(client: GraphqlService, cookie: CookieService) -> Self {
         Self {
             client,
+            cookie,
             tasks: Rc::default(),
             stats: Rc::default(),
             _controller: PhantomData,
@@ -65,10 +70,17 @@ impl<C> App<C> {
 
 impl<C> Render for App<C>
 where
-    C: tasks::Actions + task::Actions + job::Actions + Clone + 'static,
+    C: tasks::Actions + task::Actions + job::Actions + session::Actions + Clone + 'static,
 {
     fn render<'b>(&self, cx: &mut RenderContext<'b>) -> Node<'b> {
         use dodrio::builder::*;
+
+        // TODO: once we have actual session data to store, we should add an
+        // `Option<Session>` to the `App`, and trigger this route if that value
+        // is set to `None`, instead of reading the current path.
+        if let Some(Route::Login) = Route::active() {
+            return component::Login::<C>::new().render(cx);
+        }
 
         let stats = self.stats.try_borrow().unwrap_throw();
         let tasks = self.tasks().unwrap_throw();

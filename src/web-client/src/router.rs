@@ -134,6 +134,16 @@ where
                 C::search(root, vdom, nav.search_value())
             }
 
+            Login => {
+                let app = root.unwrap_mut::<App>();
+
+                // When visiting the login page, we remove any existing session
+                // cookie, making this page function as a logout page as well.
+                app.cookie.remove("session");
+
+                Box::new(vdom.render().map_err(|_| ()))
+            }
+
             Task(id) => C::activate_task(root, vdom, id),
         }
     }
@@ -147,6 +157,9 @@ pub(crate) enum Route {
     /// This page shows a list of (optionally filtered) set of tasks that can be
     /// activated.
     Home,
+
+    /// The login page to authenticate a session.
+    Login,
 
     /// The task details view.
     ///
@@ -175,6 +188,7 @@ impl fmt::Display for Route {
 
         match self {
             Home => f.write_str("#/"),
+            Login => f.write_str("#/login"),
             Task(id) => write!(f, "#/task/{}", id),
         }
     }
@@ -192,6 +206,7 @@ impl FromStr for Route {
 
         match s {
             "#/" => Ok(Home),
+            "#/login" => Ok(Login),
             p if p.starts_with("#/task/") => {
                 let id = p.rsplitn(2, '/').next().unwrap_throw();
                 if id.is_empty() {

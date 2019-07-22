@@ -12,6 +12,7 @@ dependencies = [
  "console_error_panic_hook 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "console_log 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "dodrio 0.1.0 (git+https://github.com/fitzgen/dodrio.git?rev=40e5adbdacc30a88cac33052ab40c92cee236ab2)",
+ "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.28 (registry+https://github.com/rust-lang/crates.io-index)",
  "gloo-events 0.1.0 (git+https://github.com/rustwasm/gloo.git?rev=1078ca3166b16ea8e19d9d691935e1f0fc23f87a)",
  "graphql_client 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",

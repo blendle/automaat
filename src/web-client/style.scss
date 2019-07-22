@@ -16,6 +16,7 @@
 @import 'scss/bulma/elements/_content';
 
 // Bulma layout
+@import 'scss/bulma/layout/_hero';
 @import 'scss/bulma/layout/_section';
 
 // Bulma grid
@@ -37,6 +38,7 @@
 
 // Components
 @import 'src/component/header';
+@import 'src/component/login';
 @import 'src/component/statistic';
 @import 'src/component/navbar';
 @import 'src/component/tasks';

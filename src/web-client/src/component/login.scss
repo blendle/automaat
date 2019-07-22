@@ -1,0 +1,45 @@
+.login {
+  @extend .hero;
+  @extend .is-fullheight;
+
+  > div {
+    @extend .hero-body;
+
+    > div {
+      @extend .container;
+      @extend .has-text-centered;
+    }
+  }
+
+  background: #ff1060;
+  background: linear-gradient(135deg, #ff1060 0%, #ff6255 100%);
+
+  input {
+    @extend .input;
+    @extend .is-large;
+    @extend .is-rounded;
+
+    max-width: 580px;
+    text-align: center;
+    margin-bottom: 50px;
+
+    &:focus {
+      box-shadow: none;
+      outline: none;
+    }
+  }
+
+  .description {
+    @extend .has-text-white-ter;
+    @extend .is-size-5;
+
+    margin-bottom: 200px;
+
+    p { margin-bottom: 1rem; }
+  }
+
+  img {
+    height: 200px;
+    margin-bottom: 100px;
+  }
+}

@@ -1,7 +1,7 @@
 //! The controller handles UI events, translates them into updates on the model,
 //! and schedules re-renders.
 
-use crate::model::{job, statistics, task, tasks};
+use crate::model::{job, session, statistics, task, tasks};
 use crate::router::Route;
 use crate::service::GraphqlService;
 use crate::utils;
@@ -48,7 +48,7 @@ impl tasks::Actions for Controller {
 
         let fut = app
             .client
-            .request(SearchTasks, variables)
+            .request(SearchTasks, variables, vdom.clone())
             .then(|response| {
                 response
                     .ok()
@@ -126,7 +126,7 @@ impl task::Actions for Controller {
 
         let fut = app
             .client
-            .request(FetchTaskDetails, variables)
+            .request(FetchTaskDetails, variables, vdom.clone())
             .then(|response| {
                 response
                     .ok()
@@ -186,7 +186,7 @@ impl task::Actions for Controller {
         let lock = app.cloned_tasks();
         let fut = app
             .client
-            .request(CreateJob, Variables { job: input })
+            .request(CreateJob, Variables { job: input }, vdom.clone())
             .map_err(|err| vec![err.to_string()])
             .and_then(|response| {
                 if let Some(err) = response.errors {
@@ -378,8 +378,9 @@ impl job::Actions for Controller {
                 // Depending on the new job status, either keep polling the
                 // server for the final status, or break out of the loop.
                 let new_client = client.clone();
+                let vdom2 = vdom.clone();
                 let retry_or_break = move |(lock, id, task_id, status)| {
-                    vdom.schedule_render();
+                    vdom2.schedule_render();
 
                     match status {
                         job::Status::Delivered => Ok(Loop::Continue((
@@ -388,7 +389,7 @@ impl job::Actions for Controller {
                             lock,
                             id,
                             task_id,
-                            vdom,
+                            vdom2,
                         ))),
                         job::Status::Created => unreachable!(),
                         _ => Ok(Loop::Break(())),
@@ -396,7 +397,7 @@ impl job::Actions for Controller {
                 };
 
                 client
-                    .request(FetchJobResult, variables)
+                    .request(FetchJobResult, variables, vdom)
                     .map_err(|err| vec![err.to_string()])
                     .and_then(delay)
                     .and_then(handle_response)
@@ -423,7 +424,7 @@ impl statistics::Actions for Controller {
         let stats = app.cloned_statistics();
         let fut = app
             .client
-            .request(FetchStatistics, Variables)
+            .request(FetchStatistics, Variables, vdom.clone())
             .then(|response| {
                 response
                     .ok()
@@ -445,6 +446,37 @@ impl statistics::Actions for Controller {
                     .count();
 
                 stats.update(tasks.len(), running, failed);
+                vdom.render().map_err(|_| ())
+            });
+
+        Box::new(fut)
+    }
+}
+
+impl session::Actions for Controller {
+    fn authenticate(
+        root: &mut dyn RootRender,
+        vdom: VdomWeak,
+        token: String,
+    ) -> Box<dyn Future<Item = (), Error = ()>> {
+        use crate::graphql::fetch_statistics::*;
+        use crate::graphql::FetchStatistics;
+
+        let app = root.unwrap_mut::<App>();
+
+        app.cookie.set("session", &token);
+
+        // TODO: It doesn't really matter which endpoint we'll make the request
+        // to. All we care about is if the request succeeded or not.
+        //
+        // We might want to make this more efficient by using a new endpoint to
+        // fetch user session details, so that we can store them directly.
+        let fut = app
+            .client
+            .request(FetchStatistics, Variables, vdom.clone())
+            .map_err(|_| ())
+            .and_then(move |_| {
+                Route::Home.set_path();
                 vdom.render().map_err(|_| ())
             });
 

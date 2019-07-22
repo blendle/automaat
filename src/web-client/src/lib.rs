@@ -72,7 +72,7 @@ pub(crate) mod utils;
 use app::App;
 use dodrio::Vdom;
 use router::Router;
-use service::{GraphqlService, ShortcutService};
+use service::{CookieService, GraphqlService, ShortcutService};
 use wasm_bindgen::prelude::*;
 
 /// Starting point of the application once loaded in the browser.
@@ -80,8 +80,9 @@ use wasm_bindgen::prelude::*;
 pub fn run() -> Result<(), JsValue> {
     init_log();
 
-    let graphql = GraphqlService::new("/graphql");
-    let app: App = App::new(graphql);
+    let cookie = CookieService::new();
+    let graphql = GraphqlService::new("/graphql", cookie.clone());
+    let app: App = App::new(graphql, cookie);
 
     let body = utils::document().body().unwrap_throw();
     let vdom = Vdom::new(&body, app);
