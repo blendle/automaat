@@ -102,7 +102,10 @@ mod tests {
     use diesel::result::Error;
 
     fn connection() -> PgConnection {
-        PgConnection::establish("postgres://postgres@localhost").unwrap()
+        let url = std::env::var("DATABASE_URL")
+            .unwrap_or_else(|_| "postgres://postgres@localhost".to_owned());
+
+        PgConnection::establish(&url).unwrap()
     }
 
     #[test]

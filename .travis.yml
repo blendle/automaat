@@ -14,12 +14,14 @@ cache:
 env:
   global:
     - CARGO_BUILD_JOBS=8
+    - CARGO_MAKE_VERSION=0.20.0
     - CARGO_TERM_COLOR=always
+    - DATABASE_URL=postgres://postgres@127.0.0.1
+    - DIESEL_VERSION=1.4.0
     - RUSTC_WRAPPER=~/.cargo/bin/sccache
     - SCCACHE_ERROR_LOG=$HOME/sccache.log
     - SCCACHE_IDLE_TIMEOUT=0
     - SCCACHE_VERSION=0.2.8
-    - CARGO_MAKE_VERSION=0.20.0
     # DOCKER_PASSWORD
     - secure: "RCqWKYe7AVZKl0slJ/NGV+j82udShy9O1Bvuod4PNVZ714mP+yCZyel1gFY9A1X2BMSVi2syZslPlKiHEWAR8dOsHAlLBXJqAdtIICTKa1sgYK+EzioxXYP2d8c6EMnqwzDiko+sc5T5N2crp1ysWd4DHdhqz3kBp6JnDaVSewu5I7dCOSAVFzUtJp/2Jb1lQd/nrAlSX/M8m6j1xYe91QNpJvcDhVN1IhD94xT+GT7CM+Ifgmft3rD8OTWJokqGji1/c14jdZRKiDZNrUtvMidiBazJdge6KI+uZ06dSn2ns+7R+ZoZn/NEALGnJXKR/1w6KD8cY2s1qumqUpotwtePLsf+/EGNAEAdaH9K+3O0CXRL0I04JxSi/vjC12nG7RIXkyWxpJE3clr9KJWNzkmvVRYrftt/SuT56hpOXyYFfZfe09Lkn4ZGKSYWcorQx1VB+Bo1Ee089/VeG0T8btcZ7z4LKfBwlq2mL5TFoqftvenHO7U+6m5iMdAQINat3XefRlCVIzozN8HQSBet347Crj47YvlyAnHmfKKW4qKFwNnOj9fTPtDktk98yezNJGXlTiZK5zfpnJLLHuAv5yAu8490Kb+sYM5t3J9r4DmHNA4to5o1ItIqOeBNQIFHNwkNJhYZBWjpPQtZypmFBNKIlwU6pBzomLmx8w67Ya4="
 matrix:
@@ -47,6 +49,8 @@ install:
 before_script:
   - env RUST_LOG=sccache=error sccache --start-server
   - cargo install cargo-make --version "$CARGO_MAKE_VERSION" || true
+  - cargo install diesel_cli --no-default-features --features postgres --version "$DIESEL_VERSION" || true
+  - diesel migration run --migration-dir src/server/migrations
   - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
 script:
   - cargo make test
