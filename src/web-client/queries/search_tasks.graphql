@@ -3,5 +3,6 @@ query SearchTasks($search: SearchTaskInput) {
     id
     name
     description
+    labels
   }
 }

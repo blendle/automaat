@@ -1,8 +1,6 @@
 //! The GraphQL service is a thin wrapper around a GraphQL-capable HTTP client.
 
-use crate::router::Route;
 use crate::CookieService;
-use dodrio::VdomWeak;
 use failure::{Compat, Fail};
 use futures::future::Future;
 use graphql_client::{web, GraphQLQuery, Response};
@@ -14,7 +12,8 @@ pub(crate) struct Service {
     /// The endpoint of the GraphQL API.
     endpoint: String,
 
-    /// The cookie service used to fetch and store authentication credentials.
+    /// The cookie service used to store and clean up authentication
+    /// credentials.
     cookie: CookieService,
 }
 
@@ -60,7 +59,6 @@ impl Service {
         &self,
         query: Q,
         variables: Q::Variables,
-        vdom: VdomWeak,
     ) -> impl Future<Item = Response<Q::ResponseData>, Error = Error> + 'static {
         let mut client = web::Client::new(self.endpoint.as_str());
 
@@ -69,15 +67,14 @@ impl Service {
             client.add_header("authorization", auth);
         }
 
+        let cookie = self.cookie.clone();
         client
             .call(query, variables)
             .map_err(|err| Error::Client(err.compat()))
             .and_then(move |response| {
                 if let Some(errors) = &response.errors {
                     if errors.iter().any(|e| e.message == "Unauthorized") {
-                        Route::Login.set_path();
-                        vdom.schedule_render();
-
+                        cookie.remove("session");
                         return futures::future::err(Error::Authentication);
                     }
                 }

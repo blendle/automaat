@@ -4,7 +4,7 @@
 use crate::app::App;
 use crate::component::Navbar;
 use crate::controller::Controller;
-use crate::model::{statistics, task, tasks};
+use crate::model::{session, statistics, task, tasks};
 use crate::utils;
 use dodrio::{RootRender, VdomWeak};
 use futures::prelude::*;
@@ -27,43 +27,45 @@ impl<C: Clone> Default for Router<C> {
 
 impl<C> Router<C>
 where
-    C: tasks::Actions + task::Actions + statistics::Actions + Clone + 'static,
+    C: tasks::Actions + task::Actions + statistics::Actions + session::Actions + Clone + 'static,
 {
     /// Listen for route changes.
-    pub(crate) fn listen(&self, vdom: VdomWeak) {
+    pub(crate) fn listen(&self, vdom: &VdomWeak) {
         use Route::*;
 
         // Callback fired whenever the URL changes.
         //
         // Opens task detail views if needed, or performs search queries.
+        let vdom2 = vdom.clone();
         let on_popstate_event = move |_: PopStateEvent| {
             let route = match Route::active() {
                 None => return utils::set_hash(&Home.to_string()),
                 Some(route) => route,
             };
 
-            spawn_local(
-                vdom.with_component({
-                    let vdom = vdom.clone();
-                    move |root| {
-                        let vdom = vdom.clone();
-                        Self::handle_route_change(route, root, vdom)
-                    }
-                })
+            let vdom = vdom2.clone();
+            let fut = vdom2
+                .with_component({ move |root| Self::handle_route_change(route, root, vdom) })
                 .map_err(|_| ())
-                .and_then(|fut| fut),
-            );
+                .and_then(|fut| fut);
+
+            spawn_local(fut);
         };
 
-        // Handle initial page load.
-        on_popstate_event(PopStateEvent::new("popstate").unwrap_throw());
-
-        // popstate
-        let closure: Closure<dyn FnMut(_)> = Closure::wrap(Box::new(on_popstate_event));
+        let closure: Closure<dyn FnMut(_)> = Closure::wrap(Box::new(on_popstate_event.clone()));
         utils::window()
             .add_event_listener_with_callback("popstate", closure.as_ref().unchecked_ref())
             .unwrap_throw();
         closure.forget();
+
+        // Fetch session data, and trigger route check on page load.
+        let vdom2 = vdom.clone();
+        spawn_local(
+            vdom.with_component(|root| C::authenticate(root, vdom2, None))
+                .map_err(|_| ())
+                .and_then(|fut| fut)
+                .map(move |_| on_popstate_event(PopStateEvent::new("popstate").unwrap_throw())),
+        );
     }
 
     /// Handle route changes.
@@ -134,16 +136,6 @@ where
                 C::search(root, vdom, nav.search_value())
             }
 
-            Login => {
-                let app = root.unwrap_mut::<App>();
-
-                // When visiting the login page, we remove any existing session
-                // cookie, making this page function as a logout page as well.
-                app.cookie.remove("session");
-
-                Box::new(vdom.render().map_err(|_| ()))
-            }
-
             Task(id) => C::activate_task(root, vdom, id),
         }
     }
@@ -157,9 +149,6 @@ pub(crate) enum Route {
     /// This page shows a list of (optionally filtered) set of tasks that can be
     /// activated.
     Home,
-
-    /// The login page to authenticate a session.
-    Login,
 
     /// The task details view.
     ///
@@ -188,7 +177,6 @@ impl fmt::Display for Route {
 
         match self {
             Home => f.write_str("#/"),
-            Login => f.write_str("#/login"),
             Task(id) => write!(f, "#/task/{}", id),
         }
     }
@@ -206,7 +194,6 @@ impl FromStr for Route {
 
         match s {
             "#/" => Ok(Home),
-            "#/login" => Ok(Login),
             p if p.starts_with("#/task/") => {
                 let id = p.rsplitn(2, '/').next().unwrap_throw();
                 if id.is_empty() {

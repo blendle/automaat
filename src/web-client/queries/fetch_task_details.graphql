@@ -3,6 +3,7 @@ query FetchTaskDetails($id: ID!) {
     id
     name
     description
+    labels
 
     variables {
       key

@@ -107,7 +107,7 @@ impl Tasks {
     /// This also deactivates any jobs attached to this task.
     pub(crate) fn disable_active_task(&mut self) {
         if let Some(task) = self.active_task_mut() {
-            task.deactivate_job();
+            task.deactivate();
         }
 
         let _ = self.active_task_ids.pop();
@@ -116,7 +116,7 @@ impl Tasks {
     /// Disable all active tasks, creating an empty stack.
     pub(crate) fn disable_all_active_tasks(&mut self) {
         while let Some(task) = self.active_task_mut() {
-            task.deactivate_job();
+            task.deactivate();
             let _ = self.active_task_ids.pop();
         }
     }

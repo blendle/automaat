@@ -2,12 +2,15 @@
 
 use crate::graphql::fetch_task_details::{FetchTaskDetailsTask, FetchTaskDetailsTaskVariables};
 use crate::graphql::search_tasks::SearchTasksTasks;
-use crate::model::{job, variable};
+use crate::model::session::{AccessMode, Session};
+use crate::model::{job, tasks, variable};
 use dodrio::{RootRender, VdomWeak};
 use futures::future::Future;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
 use std::ops::Deref;
+use std::rc::Rc;
 
 /// The task model.
 #[derive(Clone, Debug)]
@@ -40,6 +43,9 @@ pub(crate) struct Task {
     /// the UI. From that point on, the variables are cached and won't have to
     /// be fetched again during the active application session.
     variables: Option<Vec<FetchTaskDetailsTaskVariables>>,
+
+    /// Controls whether or not to show the login field when the task is active.
+    pub(crate) show_login: bool,
 }
 
 impl Task {
@@ -61,6 +67,19 @@ impl Task {
         self.details.description.as_ref().map_or("", String::as_str)
     }
 
+    /// The labels attached to the task.
+    ///
+    /// Task labels are used to match session privileges against. If a task has
+    /// one or more labels, then the session is expected to match at least one
+    /// privilege to those labels in order to be able to run the task.
+    pub(crate) fn labels(&self) -> Vec<&str> {
+        self.details
+            .labels
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>()
+    }
+
     /// The optional set of variables.
     ///
     /// This returns `None` if the variables haven't been fetched from the
@@ -70,6 +89,40 @@ impl Task {
             None => None,
             Some(variables) => Some(variables.iter().map(Into::into).collect()),
         }
+    }
+
+    /// Determine if a session is allowed to run a task.
+    pub(crate) fn run_access_mode(&self, session: &Option<Session>) -> AccessMode {
+        // A task without labels can be run by anyone with access to the
+        // client, both unauthenticated and authenticated.
+        if self.labels().is_empty() {
+            return AccessMode::Ok;
+        }
+
+        // If the task has any labels defined, and no authenticated session
+        // exists, the job cannot be run at this point without first
+        // authenticating.
+        if session.is_none() {
+            return AccessMode::Unauthenticated;
+        }
+
+        // If any of the task labels are defined in the list of session
+        // privileges, this session is allowed to run the task.
+        for label in &self.labels() {
+            if session
+                .as_ref()
+                .map_or(&vec![], |s| &s.privileges)
+                .iter()
+                .any(|x| x == label)
+            {
+                return AccessMode::Ok;
+            }
+        }
+
+        // Once here, the current authenticated session lacks sufficient
+        // privileges. The only way to run this task is to increase the session
+        // privileges.
+        AccessMode::Unauthorized
     }
 
     /// Provide a job to the task, which will be cached, and marked as the
@@ -88,8 +141,10 @@ impl Task {
         self.active_job_idx = Some(self.jobs.len() - 1)
     }
 
-    /// Unset any active job as inactive, but keep the job around in the cache.
-    pub(crate) fn deactivate_job(&mut self) {
+    /// Hide the login view and unset any active job as inactive, but keep the
+    /// job around in the cache.
+    pub(crate) fn deactivate(&mut self) {
+        self.show_login = false;
         self.active_job_idx = None
     }
 
@@ -114,6 +169,7 @@ impl From<SearchTasksTasks> for Task {
             active_job_idx: None,
             variables: None,
             jobs: vec![],
+            show_login: false,
         }
     }
 }
@@ -125,10 +181,12 @@ impl<'a> From<variable::ValueAdvertiser<'a>> for Task {
                 id: input.task_id.to_owned().to_string(),
                 name: input.name.to_owned(),
                 description: input.description.map(str::to_owned),
+                labels: vec![],
             },
             active_job_idx: None,
             variables: None,
             jobs: vec![],
+            show_login: false,
         }
     }
 }
@@ -149,6 +207,7 @@ impl From<FetchTaskDetailsTask> for Vec<Task> {
             id: input.id.clone(),
             name: input.name.clone(),
             description: input.description.clone(),
+            labels: input.labels,
         };
 
         let task = Task {
@@ -156,6 +215,7 @@ impl From<FetchTaskDetailsTask> for Vec<Task> {
             active_job_idx: None,
             variables: input.variables,
             jobs: vec![],
+            show_login: false,
         };
 
         tasks.push(task);
@@ -234,4 +294,10 @@ pub(crate) trait Actions {
     ///
     /// [Dordio]: https://github.com/fitzgen/dodrio
     fn render_task_details(vdom: VdomWeak) -> Box<dyn Future<Item = (), Error = ()>>;
+
+    /// Activate the login field for a given task.
+    fn show_task_login(root: &mut dyn RootRender, vdom: VdomWeak, id: Id);
+
+    /// Deactivate the login field for a given task.
+    fn hide_task_login(tasks: Rc<RefCell<tasks::Tasks>>, vdom: VdomWeak, id: Id);
 }

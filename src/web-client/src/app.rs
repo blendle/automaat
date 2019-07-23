@@ -20,6 +20,9 @@ pub(crate) struct App<C = Controller> {
     /// The cookie service to modify cookie data.
     pub(crate) cookie: CookieService,
 
+    /// The authenticated session data, if any.
+    session: Rc<RefCell<Option<session::Session>>>,
+
     /// All tasks fetched since the start of the application session.
     ///
     /// This is purely meant for caching purposes, the source of truth lives on
@@ -41,6 +44,7 @@ impl<C> App<C> {
         Self {
             client,
             cookie,
+            session: Rc::default(),
             tasks: Rc::default(),
             stats: Rc::default(),
             _controller: PhantomData,
@@ -55,6 +59,11 @@ impl<C> App<C> {
     /// Get a mutable reference to the tasks cache.
     pub(crate) fn tasks_mut(&self) -> Result<RefMut<'_, tasks::Tasks>, ()> {
         self.tasks.try_borrow_mut().map_err(|_| ())
+    }
+
+    /// Get a reference-counted clone of the authenticated session, if any.
+    pub(crate) fn cloned_session(&self) -> Rc<RefCell<Option<session::Session>>> {
+        Rc::clone(&self.session)
     }
 
     /// Get a reference-counted clone of the cached tasks.
@@ -75,13 +84,6 @@ where
     fn render<'b>(&self, cx: &mut RenderContext<'b>) -> Node<'b> {
         use dodrio::builder::*;
 
-        // TODO: once we have actual session data to store, we should add an
-        // `Option<Session>` to the `App`, and trigger this route if that value
-        // is set to `None`, instead of reading the current path.
-        if let Some(Route::Login) = Route::active() {
-            return component::Login::<C>::new().render(cx);
-        }
-
         let stats = self.stats.try_borrow().unwrap_throw();
         let tasks = self.tasks().unwrap_throw();
         let filtered_tasks = tasks.filtered_tasks();
@@ -98,7 +100,10 @@ where
         let tasks = self.tasks().unwrap_throw();
 
         if let Some(task) = tasks.active_task() {
-            let task_details = component::TaskDetails::<C>::new(&*task);
+            let session = self.session.try_borrow().unwrap_throw();
+            let access_mode = task.run_access_mode(&*session);
+
+            let task_details = component::TaskDetails::<C>::new(&*task, access_mode);
             node = node.child(task_details.render(cx));
         };
 

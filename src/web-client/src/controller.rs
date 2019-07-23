@@ -13,6 +13,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::time::Duration;
 use wasm_bindgen::UnwrapThrowExt;
+use wasm_bindgen_futures::spawn_local;
 use wasm_timer::{Delay, Instant};
 use web_sys::HtmlElement;
 
@@ -48,7 +49,7 @@ impl tasks::Actions for Controller {
 
         let fut = app
             .client
-            .request(SearchTasks, variables, vdom.clone())
+            .request(SearchTasks, variables)
             .then(|response| {
                 response
                     .ok()
@@ -126,7 +127,7 @@ impl task::Actions for Controller {
 
         let fut = app
             .client
-            .request(FetchTaskDetails, variables, vdom.clone())
+            .request(FetchTaskDetails, variables)
             .then(|response| {
                 response
                     .ok()
@@ -186,7 +187,7 @@ impl task::Actions for Controller {
         let lock = app.cloned_tasks();
         let fut = app
             .client
-            .request(CreateJob, Variables { job: input }, vdom.clone())
+            .request(CreateJob, Variables { job: input })
             .map_err(|err| vec![err.to_string()])
             .and_then(|response| {
                 if let Some(err) = response.errors {
@@ -219,7 +220,7 @@ impl task::Actions for Controller {
         let task = tasks.get_mut(&id).unwrap_throw();
 
         task.activate_last_job();
-        wasm_bindgen_futures::spawn_local(Self::render_task_details(vdom));
+        spawn_local(Self::render_task_details(vdom));
     }
 
     fn render_task_details(vdom: VdomWeak) -> Box<dyn Future<Item = (), Error = ()>> {
@@ -264,6 +265,35 @@ impl task::Actions for Controller {
         }
 
         vdom.schedule_render();
+    }
+
+    fn show_task_login(root: &mut dyn RootRender, vdom: VdomWeak, id: task::Id) {
+        use crate::component::TaskDetails;
+
+        let app = root.unwrap_mut::<App>();
+        let mut tasks = app.tasks_mut().unwrap_throw();
+
+        if let Some(mut task) = tasks.get_mut(&id) {
+            if !task.show_login {
+                task.show_login = true;
+                spawn_local(
+                    vdom.render()
+                        .map_err(|_| ())
+                        .map(|_| TaskDetails::<Self>::focus_login()),
+                );
+            }
+        }
+    }
+
+    fn hide_task_login(tasks: Rc<RefCell<tasks::Tasks>>, vdom: VdomWeak, id: task::Id) {
+        let mut tasks = tasks.try_borrow_mut().unwrap_throw();
+
+        if let Some(mut task) = tasks.get_mut(&id) {
+            if task.show_login {
+                task.show_login = false;
+                vdom.schedule_render();
+            }
+        }
     }
 }
 
@@ -378,9 +408,8 @@ impl job::Actions for Controller {
                 // Depending on the new job status, either keep polling the
                 // server for the final status, or break out of the loop.
                 let new_client = client.clone();
-                let vdom2 = vdom.clone();
                 let retry_or_break = move |(lock, id, task_id, status)| {
-                    vdom2.schedule_render();
+                    vdom.schedule_render();
 
                     match status {
                         job::Status::Delivered => Ok(Loop::Continue((
@@ -389,7 +418,7 @@ impl job::Actions for Controller {
                             lock,
                             id,
                             task_id,
-                            vdom2,
+                            vdom,
                         ))),
                         job::Status::Created => unreachable!(),
                         _ => Ok(Loop::Break(())),
@@ -397,7 +426,7 @@ impl job::Actions for Controller {
                 };
 
                 client
-                    .request(FetchJobResult, variables, vdom)
+                    .request(FetchJobResult, variables)
                     .map_err(|err| vec![err.to_string()])
                     .and_then(delay)
                     .and_then(handle_response)
@@ -424,7 +453,7 @@ impl statistics::Actions for Controller {
         let stats = app.cloned_statistics();
         let fut = app
             .client
-            .request(FetchStatistics, Variables, vdom.clone())
+            .request(FetchStatistics, Variables)
             .then(|response| {
                 response
                     .ok()
@@ -457,14 +486,17 @@ impl session::Actions for Controller {
     fn authenticate(
         root: &mut dyn RootRender,
         vdom: VdomWeak,
-        token: String,
+        token: Option<String>,
     ) -> Box<dyn Future<Item = (), Error = ()>> {
-        use crate::graphql::fetch_statistics::*;
-        use crate::graphql::FetchStatistics;
+        use crate::graphql::fetch_session_details::*;
+        use crate::graphql::FetchSessionDetails;
 
         let app = root.unwrap_mut::<App>();
+        let session = app.cloned_session();
 
-        app.cookie.set("session", &token);
+        if let Some(token) = token {
+            app.cookie.set("session", &token);
+        };
 
         // TODO: It doesn't really matter which endpoint we'll make the request
         // to. All we care about is if the request succeeded or not.
@@ -473,10 +505,19 @@ impl session::Actions for Controller {
         // fetch user session details, so that we can store them directly.
         let fut = app
             .client
-            .request(FetchStatistics, Variables, vdom.clone())
+            .request(FetchSessionDetails, Variables)
+            .then(|response| {
+                response
+                    .ok()
+                    .and_then(|r| r.data)
+                    .map(|d| d.session)
+                    .ok_or(())
+            })
             .map_err(|_| ())
-            .and_then(move |_| {
-                Route::Home.set_path();
+            .and_then(move |response| {
+                let mut session = session.try_borrow_mut().unwrap_throw();
+                *session = response.map(Into::into);
+
                 vdom.render().map_err(|_| ())
             });
 

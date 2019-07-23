@@ -5,7 +5,9 @@
 use crate::app::App;
 use crate::component;
 use crate::model::job::{self, Job, Status};
+use crate::model::session::{self, AccessMode};
 use crate::model::task::{self, Task};
+use crate::utils;
 use dodrio::bumpalo::collections::string::String as BString;
 use dodrio::{Node, Render, RenderContext};
 use futures::prelude::*;
@@ -13,12 +15,16 @@ use std::marker::PhantomData;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::UnwrapThrowExt;
 use wasm_bindgen_futures::spawn_local;
-use web_sys::HtmlFormElement;
+use web_sys::{HtmlFormElement, HtmlInputElement};
 
 /// The `TaskDetails` component.
 pub(crate) struct TaskDetails<'a, C> {
     /// A reference to the task for which the details are presented.
     task: &'a Task,
+
+    /// The mode of access to this task, according to the active session
+    /// details.
+    access_mode: AccessMode,
 
     /// Reference to application controller.
     _controller: PhantomData<C>,
@@ -26,11 +32,19 @@ pub(crate) struct TaskDetails<'a, C> {
 
 impl<'a, C> TaskDetails<'a, C> {
     /// Create a new TaskDetails component for the provided task.
-    pub(crate) const fn new(task: &'a Task) -> Self {
+    pub(crate) const fn new(task: &'a Task, access_mode: AccessMode) -> Self {
         Self {
             task,
+            access_mode,
             _controller: PhantomData,
         }
+    }
+
+    /// Set focus to the login field DOM node.
+    pub(crate) fn focus_login() {
+        let _ = utils::element("input.login")
+            .as_ref()
+            .map(HtmlInputElement::select);
     }
 }
 
@@ -56,8 +70,17 @@ trait Views<'b> {
     /// The back button to exit the details view.
     fn btn_back(&self, cx: &mut RenderContext<'b>) -> Node<'b>;
 
+    /// The authenticate button to open the login dialog.
+    fn btn_authenticate(&self, cx: &mut RenderContext<'b>) -> Node<'b>;
+
+    /// The login field to authenticate.
+    fn field_login(&self, cx: &mut RenderContext<'b>) -> Node<'b>;
+
     /// The run button to start running a task.
     fn btn_run(&self, cx: &mut RenderContext<'b>) -> Node<'b>;
+
+    /// The (disabled) "missing authorization" button.
+    fn btn_unauthorized(&self, cx: &mut RenderContext<'b>) -> Node<'b>;
 
     /// The form is the container object that contains the header, body and
     /// footer of the details view.
@@ -66,7 +89,7 @@ trait Views<'b> {
 
 impl<'a, 'b, C> Views<'b> for TaskDetails<'a, C>
 where
-    C: task::Actions + job::Actions,
+    C: task::Actions + job::Actions + session::Actions,
 {
     fn header(&self, cx: &mut RenderContext<'b>) -> Node<'b> {
         use dodrio::builder::*;
@@ -178,9 +201,17 @@ where
     fn footer(&self, cx: &mut RenderContext<'b>) -> Node<'b> {
         use dodrio::builder::*;
 
-        footer(&cx)
-            .children([self.btn_back(cx), self.btn_run(cx)])
-            .finish()
+        let action = if self.task.show_login {
+            self.field_login(cx)
+        } else {
+            match self.access_mode {
+                AccessMode::Ok => self.btn_run(cx),
+                AccessMode::Unauthorized => self.btn_unauthorized(cx),
+                AccessMode::Unauthenticated => self.btn_authenticate(cx),
+            }
+        };
+
+        footer(&cx).children([self.btn_back(cx), action]).finish()
     }
 
     fn btn_back(&self, cx: &mut RenderContext<'b>) -> Node<'b> {
@@ -201,19 +232,79 @@ where
             .finish()
     }
 
+    fn btn_authenticate(&self, cx: &mut RenderContext<'b>) -> Node<'b> {
+        use dodrio::builder::*;
+
+        let id = self.task.id();
+        let class = BString::from_str_in(&self.access_mode.to_string(), cx.bump);
+
+        button(&cx)
+            .attr("type", "button")
+            .attr("class", class.into_bump_str())
+            .child(span(&cx).child(text("Authentication Required ")).finish())
+            .child(span(&cx).child(i(&cx).finish()).finish())
+            .on("click", move |root, vdom, _event| {
+                C::show_task_login(root, vdom, id.clone());
+                Self::focus_login()
+            })
+            .finish()
+    }
+
+    fn field_login(&self, cx: &mut RenderContext<'b>) -> Node<'b> {
+        use dodrio::builder::*;
+
+        let id = self.task.id();
+
+        input(&cx)
+            .attr("class", "login")
+            .attr("placeholder", "Please provide your login token...")
+            .on("input", move |root, vdom, event| {
+                let target = event.target().unwrap_throw();
+                let value = target.unchecked_ref::<HtmlInputElement>().value();
+
+                let app = root.unwrap_mut::<App>();
+                let tasks = app.cloned_tasks();
+                let id = id.clone();
+
+                spawn_local(
+                    C::authenticate(root, vdom.clone(), Some(value))
+                        .map(move |_| C::hide_task_login(tasks, vdom, id)),
+                );
+            })
+            .finish()
+    }
+
     fn btn_run(&self, cx: &mut RenderContext<'b>) -> Node<'b> {
         use dodrio::builder::*;
 
-        let mut btn = button(&cx)
-            .attr("type", "submit")
-            .child(span(&cx).child(text("Run Task ")).finish())
-            .child(span(&cx).child(i(&cx).finish()).finish());
-
+        let mut disabled = false;
+        let mut class = BString::from_str_in(&self.access_mode.to_string(), cx.bump);
         if self.task.active_job().map_or(false, Job::is_running) {
-            btn = btn.attr("class", "is-loading").bool_attr("disabled", true);
+            class.push_str(" is-loading");
+            disabled = true;
         };
 
-        btn.finish()
+        button(&cx)
+            .attr("type", "submit")
+            .attr("class", class.into_bump_str())
+            .bool_attr("disabled", disabled)
+            .child(span(&cx).child(text("Run Task ")).finish())
+            .child(span(&cx).child(i(&cx).finish()).finish())
+            .finish()
+    }
+
+    fn btn_unauthorized(&self, cx: &mut RenderContext<'b>) -> Node<'b> {
+        use dodrio::builder::*;
+
+        let class = BString::from_str_in(&self.access_mode.to_string(), cx.bump);
+
+        button(&cx)
+            .attr("type", "button")
+            .attr("class", class.into_bump_str())
+            .bool_attr("disabled", true)
+            .child(span(&cx).child(text("Insufficient Privileges ")).finish())
+            .child(span(&cx).child(i(&cx).finish()).finish())
+            .finish()
     }
 
     fn form(&self, cx: &mut RenderContext<'b>) -> Node<'b> {
@@ -258,7 +349,7 @@ where
 
 impl<'a, C> Render for TaskDetails<'a, C>
 where
-    C: task::Actions + job::Actions,
+    C: task::Actions + job::Actions + session::Actions,
 {
     fn render<'b>(&self, cx: &mut RenderContext<'b>) -> Node<'b> {
         use dodrio::builder::*;

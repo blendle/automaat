@@ -52,7 +52,6 @@ where
             // route.
             //
             // If the route isn't matched, no shortcuts are enabled.
-            #[allow(clippy::wildcard_enum_match_arm)]
             match route {
                 Home => {
                     let navbar = Navbar::<C>::new();
@@ -75,7 +74,6 @@ where
                         .click(),
                     _ => return,
                 },
-                _ => return,
             }
 
             event.prevent_default();

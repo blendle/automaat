@@ -60,18 +60,43 @@
 
   footer {
     @extend .modal-card-foot;
-    button { @extend .is-medium; }
 
     .back {
       @extend %button-with-icon-first;
       i::before { content: "\f137"; } // chevron-circle-left
     }
 
-    button[type=submit] {
+    button.ok,
+    button.unauthenticated,
+    button.unauthorized {
       @extend .is-fullwidth;
-      @extend .is-info;
       @extend %button-with-icon-last;
-      i::before { content: "\f00c"; } // check
+    }
+
+    input.login {
+      @extend .input;
+      @extend .is-medium;
+    }
+
+    button {
+      @extend .is-medium;
+
+      &.ok {
+        @extend .is-info;
+        i::before { content: "\f00c"; } // check
+      }
+
+      &.unauthenticated {
+        @extend .is-warning;
+        @extend .has-text-light;
+        i::before { content: "\f577"; } // fingerprint
+      }
+
+      &.unauthorized {
+        @extend .is-danger;
+        @extend .has-text-white-ter;
+        i::before { content: "\f023"; } // lock
+      }
     }
   }
 }

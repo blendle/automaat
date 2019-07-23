@@ -46,3 +46,12 @@ pub(crate) struct CreateJob;
     response_derives = "Debug, Clone"
 )]
 pub(crate) struct FetchJobResult;
+
+/// Fetch the details of the active session (if any).
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "schema.graphql",
+    query_path = "queries/fetch_session_details.graphql",
+    response_derives = "Debug, Clone"
+)]
+pub(crate) struct FetchSessionDetails;

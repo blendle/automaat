@@ -88,7 +88,7 @@ pub fn run() -> Result<(), JsValue> {
     let vdom = Vdom::new(&body, app);
 
     let router: Router = Router::default();
-    router.listen(vdom.weak());
+    router.listen(&vdom.weak());
 
     let shortcut: ShortcutService = ShortcutService::default();
     shortcut.listen(vdom.weak());

@@ -49,7 +49,7 @@ impl Service {
     /// enabled.
     fn set_cookie(&self, name: &str, value: &str, days: i32) {
         let cookie = format!(
-            "{}={};max-age={};path=/;secure;samesite=strict",
+            "{}={};max-age={};path=/;secure",
             name,
             value,
             days * 24 * 60 * 60
