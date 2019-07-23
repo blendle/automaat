@@ -51,9 +51,12 @@ pub(super) fn graphql(
 
     block(move || {
         let conn = state.pool.get()?;
-        let session = authenticate(&token?, &conn)?;
-        let response = graphql.execute(&schema, &RequestState::new(conn, session));
+        let session = match token {
+            None => None,
+            Some(token) => Some(authenticate(&token?, &conn)?),
+        };
 
+        let response = graphql.execute(&schema, &RequestState::new(conn, session));
         serde_json::to_string(&response).map_err(Into::<ServerError>::into)
     })
     .map_err(Into::into)
@@ -84,19 +87,20 @@ fn authenticate(token: &str, conn: &PgConnection) -> Result<Session, ServerError
         .ok_or(ServerError::Authentication)
 }
 
-fn auth_token(request: &HttpRequest) -> Result<String, ServerError> {
+fn auth_token(request: &HttpRequest) -> Option<Result<String, ServerError>> {
     use actix_web::http::header;
 
-    request
-        .headers()
-        .get(header::AUTHORIZATION)
-        .and_then(|h| h.to_str().map(str::to_owned).ok())
-        .ok_or(ServerError::Authentication)
+    request.headers().get(header::AUTHORIZATION).map(|h| {
+        h.to_str()
+            .map(str::to_owned)
+            .map_err(|_| ServerError::Authentication)
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::NewSession;
     use actix_web::test;
     use diesel::prelude::*;
     use diesel::result::Error;
@@ -126,7 +130,7 @@ mod tests {
         let conn = connection();
 
         conn.test_transaction::<_, Error, _>(|| {
-            let session = Session::create(&conn).unwrap();
+            let session = NewSession::new(vec![]).create(&conn).unwrap();
             let auth = authenticate(&session.token.to_string(), &conn).unwrap();
 
             assert_eq!(session.token, auth.token);
@@ -135,17 +139,16 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn test_auth_token_missing() {
         let req = test::TestRequest::default().to_http_request();
 
-        let _ = auth_token(&req).unwrap();
+        assert!(auth_token(&req).is_none());
     }
 
     #[test]
     fn test_auth_token_exists() {
         let req = test::TestRequest::with_header("authorization", "token").to_http_request();
 
-        let _ = auth_token(&req).unwrap();
+        let _ = auth_token(&req).unwrap().unwrap();
     }
 }

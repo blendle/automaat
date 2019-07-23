@@ -5,6 +5,7 @@ table! {
         id -> Integer,
         name -> Text,
         description -> Nullable<Text>,
+        labels -> Array<Text>,
     }
 }
 
@@ -85,6 +86,7 @@ table! {
     sessions (id) {
         id -> Integer,
         token -> Uuid,
+        privileges -> Array<Text>,
     }
 }
 

@@ -53,7 +53,7 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
 # see: http://git.io/fjPnd
 tera = { git = "https://github.com/Keats/tera.git", branch = "v1" }
-uuid = { version = "0.7.0", features = ["v4"] }
+uuid = { version = "0.7.0", features = ["v4", "serde"] }
 
 [dependencies.processor-git-clone-v1]
 package = "automaat-processor-git-clone"

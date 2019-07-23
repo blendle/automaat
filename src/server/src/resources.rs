@@ -1,5 +1,6 @@
 mod global_variable;
 mod job;
+mod session;
 mod step;
 mod task;
 pub(crate) mod variable;
@@ -12,6 +13,7 @@ pub(crate) use job::variable::{graphql::JobVariableInput, JobVariable, NewJobVar
 pub(crate) use job::{
     graphql::CreateJobFromTaskInput, Job, NewJob, StatusMapping as JobStatusMapping,
 };
+pub(crate) use session::graphql::{CreateSessionInput, UpdatePrivilegesInput};
 pub(crate) use step::{graphql::CreateStepInput, NewStep, Step};
 pub(crate) use task::{
     graphql::{CreateTaskInput, SearchTaskInput},

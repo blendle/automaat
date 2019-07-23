@@ -17,17 +17,25 @@ use std::{env, error::Error, fmt};
 
 pub(crate) struct RequestState {
     pub(crate) conn: PooledConnection<ConnectionManager<PgConnection>>,
-    pub(crate) _session: Session,
+
+    /// The session state defines if a request comes from an authenticated
+    /// session, and contains any configuration related to that session.
+    ///
+    /// If the session is `None`, it means the request is from an
+    /// unauthenticated request. This can only happen if no authentication
+    /// details were provided. If details _are_ provided, but they do not match
+    /// any known session data, an authorization error is returned instead.
+    pub(crate) session: Option<Session>,
 }
 
 impl RequestState {
     pub(crate) const fn new(
         conn: PooledConnection<ConnectionManager<PgConnection>>,
-        session: Session,
+        session: Option<Session>,
     ) -> Self {
         Self {
             conn,
-            _session: session,
+            session: session,
         }
     }
 }

@@ -8,6 +8,10 @@ input CreateJobFromTaskInput {
   variables: [JobVariableInput!]!
 }
 
+input CreateSessionInput {
+  privileges: [String!]
+}
+
 input CreateStepInput {
   name: String!
   description: String
@@ -18,6 +22,7 @@ input CreateStepInput {
 input CreateTaskInput {
   name: String!
   description: String
+  labels: [String!]
   variables: [CreateVariableInput!]!
   steps: [CreateStepInput!]!
 }
@@ -151,6 +156,8 @@ type MutationRoot {
   createTask(task: CreateTaskInput!): Task!
   createJobFromTask(job: CreateJobFromTaskInput!): Job!
   createGlobalVariable(variable: GlobalVariableInput!): Boolean!
+  createSession(session: CreateSessionInput!): String!
+  updatePrivileges(privileges: UpdatePrivilegesInput!): Session!
 }
 
 enum OnConflict {
@@ -191,6 +198,7 @@ type QueryRoot {
   jobs: [Job!]!
   task(id: ID!): Task
   job(id: ID!): Job
+  session: Session
 }
 
 type RedisCommand {
@@ -208,6 +216,11 @@ input RedisCommandInput {
 input SearchTaskInput {
   name: String
   description: String
+}
+
+type Session {
+  id: ID!
+  privileges: [String!]!
 }
 
 type ShellCommand {
@@ -266,8 +279,14 @@ type Task {
   id: ID!
   name: String!
   description: String
+  labels: [String!]!
   variables: [Variable!]
   steps: [Step!]
+}
+
+input UpdatePrivilegesInput {
+  id: ID!
+  privileges: [String!]!
 }
 
 scalar Url

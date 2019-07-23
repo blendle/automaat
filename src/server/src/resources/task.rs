@@ -30,6 +30,7 @@ pub(crate) struct Task {
     pub(crate) id: i32,
     pub(crate) name: String,
     pub(crate) description: Option<String>,
+    pub(crate) labels: Vec<String>,
 }
 
 impl Task {
@@ -69,6 +70,7 @@ impl Task {
 pub(crate) struct NewTask<'a> {
     name: &'a str,
     description: Option<&'a str>,
+    labels: Vec<&'a str>,
     variables: Vec<NewVariable<'a>>,
     steps: Vec<NewStep<'a>>,
 }
@@ -76,10 +78,11 @@ pub(crate) struct NewTask<'a> {
 impl<'a> NewTask<'a> {
     /// Initialize a `NewTask` struct, which can be inserted into the
     /// database using the [`NewTask#create`] method.
-    pub(crate) fn new(name: &'a str, description: Option<&'a str>) -> Self {
+    pub(crate) fn new(name: &'a str, description: Option<&'a str>, labels: Vec<&'a str>) -> Self {
         Self {
             name,
             description,
+            labels,
             variables: vec![],
             steps: vec![],
         }
@@ -115,7 +118,11 @@ impl<'a> NewTask<'a> {
             use crate::schema::tasks::dsl::*;
 
             // waiting on https://github.com/diesel-rs/diesel/issues/860
-            let values = (name.eq(&self.name), description.eq(&self.description));
+            let values = (
+                name.eq(&self.name),
+                description.eq(&self.description),
+                labels.eq(&self.labels),
+            );
 
             let task = diesel::insert_into(tasks).values(values).get_result(conn)?;
 
@@ -165,6 +172,11 @@ pub(crate) mod graphql {
         /// relevant information so that the user of the task knows what to
         /// expect when triggering a task.
         pub(crate) description: Option<String>,
+
+        /// An optional set of labels attached to a task.
+        ///
+        /// Labels can be used to restrict who can run what task.
+        pub(crate) labels: Option<Vec<String>>,
 
         /// An optional list of variables attached to the task.
         ///
@@ -225,6 +237,13 @@ pub(crate) mod graphql {
             self.description.as_ref().map(String::as_ref)
         }
 
+        /// Labels attached to a task.
+        ///
+        /// Labels can be used to restrict who can run what task.
+        fn labels() -> Vec<&str> {
+            self.labels.iter().map(String::as_str).collect()
+        }
+
         /// The variables belonging to the task.
         ///
         /// This field can return `null`, but _only_ if a database error
@@ -272,7 +291,23 @@ impl<'a> TryFrom<&'a graphql::CreateTaskInput> for NewTask<'a> {
     type Error = String;
 
     fn try_from(input: &'a graphql::CreateTaskInput) -> Result<Self, Self::Error> {
-        let mut task = Self::new(&input.name, input.description.as_ref().map(String::as_ref));
+        let labels = input
+            .labels
+            .as_ref()
+            .map_or(vec![], |l| l.iter().map(String::as_str).collect());
+
+        if labels
+            .iter()
+            .any(|l| l.starts_with("mutation_") || l.starts_with("query_"))
+        {
+            return Err("Task labels cannot start with `mutation_` or `query_`.".to_owned());
+        }
+
+        let mut task = Self::new(
+            &input.name,
+            input.description.as_ref().map(String::as_ref),
+            labels,
+        );
 
         let variables = input
             .variables
