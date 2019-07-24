@@ -239,10 +239,8 @@ impl JobStep {
     // If the JSON value is an array, the function recurses over the values
     // within that array.
     //
-    // If the value is `null`, it is ignored.
-    //
-    // If the leaf JSON value is anything other than a string (or null), this
-    // function returns an error.
+    // If the leaf JSON value is anything other than a string, the value is
+    // ignored, as it cannot be processed as a template.
     fn formalize_value(
         &self,
         value: &mut serde_json::Value,
@@ -256,10 +254,8 @@ impl JobStep {
                 .try_for_each(|v| self.formalize_value(v, data));
         };
 
-        if value.is_null() {
+        if !value.is_string() {
             return Ok(());
-        } else if !value.is_string() {
-            return Err(INVALID_SERIALIZED_DATA.to_owned());
         };
 
         let context = TContext::from_serialize(data).map_err(|e| e.to_string())?;
