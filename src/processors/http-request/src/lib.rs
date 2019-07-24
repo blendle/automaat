@@ -24,14 +24,13 @@
 //! use url::Url;
 //!
 //! let context = Context::new()?;
-//! let url = Url::parse("https://httpbin.org/headers")?;
 //! let headers = vec![
 //!     Header::new("accept", "application/json"),
 //!     Header::new("content-type", "text/html"),
 //! ];
 //!
 //! let processor = HttpRequest {
-//!     url: url,
+//!     url: "https://httpbin.org/headers".to_owned(),
 //!     method: Method::GET,
 //!     headers: headers,
 //!     body: None,
@@ -56,10 +55,9 @@
 //! use url::Url;
 //!
 //! let context = Context::new()?;
-//! let url = Url::parse("https://httpbin.org/response-headers?hello=world")?;
 //!
 //! let processor = HttpRequest {
-//!     url: url,
+//!     url: "https://httpbin.org/response-headers?hello=world".to_owned(),
 //!     method: Method::POST,
 //!     headers: vec![],
 //!     body: Some("universe".to_owned()),
@@ -465,6 +463,21 @@ mod tests {
             let output = processor.run(&context).unwrap().expect("Some");
 
             assert!(output.contains("hello world"));
+        }
+
+        #[test]
+        fn test_request_header() {
+            let mut processor = processor_stub();
+            processor.url = "https://httpbin.org/headers".to_owned();
+            processor.headers = vec![Header {
+                name: "test-header".to_owned(),
+                value: "value".to_owned(),
+            }];
+
+            let context = Context::new().unwrap();
+            let output = processor.run(&context).unwrap().expect("Some");
+
+            assert!(output.contains("Test-Header"));
         }
 
         #[test]
