@@ -32,7 +32,7 @@ input CreateVariableInput {
   description: String
   defaultValue: String
   exampleValue: String
-  constraints: VariableConstraintsInput!
+  constraints: VariableConstraintsInput
 }
 
 scalar DateTimeUtc

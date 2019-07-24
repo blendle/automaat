@@ -153,13 +153,9 @@ pub(crate) mod graphql {
         /// shown next to the input field as an extra visual aid.
         pub(crate) example_value: Option<String>,
 
-        /// A set of constraints applied to future values attached to this
-        /// variable.
-        ///
-        /// This object is required, even though all existing constraints are
-        /// optional. This is to keep our options open for whenever we _do_ want
-        /// to add non-optional constraints.
-        pub(crate) constraints: VariableConstraintsInput,
+        /// A set of optional constraints applied to future values attached to
+        /// this variable.
+        pub(crate) constraints: Option<VariableConstraintsInput>,
     }
 
     #[derive(Debug, Clone, Deserialize, Serialize, GraphQLInputObject)]
@@ -296,13 +292,17 @@ impl<'a> TryFrom<&'a graphql::CreateVariableInput> for NewVariable<'a> {
     type Error = String;
 
     fn try_from(input: &'a graphql::CreateVariableInput) -> Result<Self, Self::Error> {
-        Self::new(
-            &input.key,
-            input
-                .constraints
+        let selection_constraint = match &input.constraints {
+            None => None,
+            Some(constraints) => constraints
                 .selection
                 .as_ref()
                 .map(|v| v.iter().map(String::as_str).collect()),
+        };
+
+        Self::new(
+            &input.key,
+            selection_constraint,
             input.default_value.as_ref().map(String::as_ref),
             input.example_value.as_ref().map(String::as_ref),
             input.description.as_ref().map(String::as_ref),
