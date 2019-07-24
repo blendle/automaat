@@ -4,7 +4,6 @@
 use crate::component;
 use crate::controller::Controller;
 use crate::model::{job, session, statistics, task, tasks};
-use crate::router::Route;
 use crate::service::{CookieService, GraphqlService};
 use dodrio::{Node, Render, RenderContext};
 use std::cell::{Ref, RefCell, RefMut};

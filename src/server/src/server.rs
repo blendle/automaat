@@ -33,10 +33,7 @@ impl RequestState {
         conn: PooledConnection<ConnectionManager<PgConnection>>,
         session: Option<Session>,
     ) -> Self {
-        Self {
-            conn,
-            session: session,
-        }
+        Self { conn, session }
     }
 }
 

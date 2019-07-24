@@ -244,8 +244,7 @@ where
             .child(span(&cx).child(text("Authentication Required ")).finish())
             .child(span(&cx).child(i(&cx).finish()).finish())
             .on("click", move |root, vdom, _event| {
-                C::show_task_login(root, vdom, id.clone());
-                Self::focus_login()
+                C::show_task_login(root, vdom, id.clone())
             })
             .finish()
     }
