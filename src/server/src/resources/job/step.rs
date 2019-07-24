@@ -236,8 +236,8 @@ impl JobStep {
     // and formalize the final JSON value using a Jinja-like templating language
     // (using the Tera crate).
     //
-    // If the JSON value is an array, the function recurses over the values
-    // within that array.
+    // If the JSON value is an array or object, the function recurses over the
+    // values within that array or object.
     //
     // If the leaf JSON value is anything other than a string, the value is
     // ignored, as it cannot be processed as a template.
@@ -252,9 +252,13 @@ impl JobStep {
                 .unwrap()
                 .iter_mut()
                 .try_for_each(|v| self.formalize_value(v, data));
-        };
-
-        if !value.is_string() {
+        } else if value.is_object() {
+            return value
+                .as_object_mut()
+                .unwrap()
+                .values_mut()
+                .try_for_each(|v| self.formalize_value(v, data));
+        } else if !value.is_string() {
             return Ok(());
         };
 
