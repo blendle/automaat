@@ -4,6 +4,7 @@ extend = "../../Makefile.toml"
 dependencies = [
   "test::fmt",
   "test::build",
+  "test::break-cache",
   "test::clippy",
   "test::unit",
   "test::doc",
@@ -110,6 +111,11 @@ description = "Minify css."
 category = "Build"
 command = "cleancss"
 args = ["-O2", "--output", "static/css/style.css", "static/css/style.css"]
+
+[tasks."test::break-cache"]
+private = true
+command = "touch"
+args = ["src/lib.rs"]
 
 [tasks."web-client::test"]
 private = true

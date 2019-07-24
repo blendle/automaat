@@ -16,6 +16,7 @@ dependencies = [
   "test::prettier-2",
   "test::fmt",
   "test::build",
+  "test::break-cache",
   "test::clippy",
   "test::unit",
   "test::doc",
@@ -40,7 +41,7 @@ category = "Development"
 workspace = false
 env = { "SERVER_ROOT" = "${CARGO_MAKE_WORKING_DIRECTORY}/src/web-client/static", "DATABASE_URL" = "postgres://postgres@localhost" }
 command = "cargo"
-args = ["run", "--all-features"]
+args = ["run", "--bin", "automaat-server", "--all-features"]
 
 [tasks.build-container-latest]
 description = "Build a release Docker container (using the `latest` tag), including the server and web-client dependencies."
@@ -109,7 +110,7 @@ args = ["--check", "*.{graphql,toml,yml,yaml,md}", "!Makefile.toml"]
 private = true
 workspace = false
 command = "prettier"
-args = ["--check", "./!(target)/**/*.{graphql,toml,yml,yaml,md}", "!./src/web-client/Makefile.toml"]
+args = ["--check", "./!(target)/**/*.{graphql,toml,yml,yaml,md}", "!./src/web-client/{target/**/*,Makefile.toml}"]
 
 [tasks."test::fmt"]
 private = true
@@ -140,6 +141,12 @@ private = true
 workspace = false
 command = "cargo"
 args = ["doc", "--all", "--bins", "--all-features", "--no-deps", "--document-private-items"]
+
+[tasks."test::break-cache"]
+private = true
+workspace = false
+command = "find"
+args = [".", "(", "-name", "lib.rs", "-o", "-name", "main.rs", ")", "-exec", "touch", "{}", ";"]
 
 [tasks."docker::build-server"]
 private = true
