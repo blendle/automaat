@@ -26,7 +26,6 @@ juniper = { version = "0.12", optional = true }
 redis = "0.10"
 serde = { version = "1", features = ["derive"] }
 url = "1"
-url_serde = "0.2"
 
 [dev-dependencies]
 juniper = "0.12"

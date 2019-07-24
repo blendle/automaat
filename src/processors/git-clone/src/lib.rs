@@ -23,13 +23,11 @@
 //! # fn main() -> Result<(), Box<std::error::Error>> {
 //! use automaat_core::{Context, Processor};
 //! use automaat_processor_git_clone::GitClone;
-//! use url::Url;
 //!
 //! let context = Context::new()?;
-//! let repo_url = Url::parse("https://github.com/blendle/automaat")?;
 //!
 //! let processor = GitClone {
-//!     url: repo_url,
+//!     url: "https://github.com/blendle/automaat".to_owned(),
 //!     username: None,
 //!     password: None,
 //!     path: Some("automaat-repo".to_owned())
@@ -69,14 +67,13 @@
     missing_debug_implementations,
     missing_copy_implementations
 )]
-#![warn(variant_size_differences)]
 #![allow(clippy::multiple_crate_versions, missing_doc_code_examples)]
 #![doc(html_root_url = "https://docs.rs/automaat-processor-git-clone/0.1.0")]
 
 use automaat_core::{Context, Processor};
 use git2::{build::RepoBuilder, Cred, FetchOptions, RemoteCallbacks};
 use serde::{Deserialize, Serialize};
-use std::{error, fmt, path};
+use std::{error, fmt, path, str::FromStr};
 use url::Url;
 
 /// The processor configuration.
@@ -84,8 +81,7 @@ use url::Url;
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct GitClone {
     /// The URL of the remote to fetch the repository from.
-    #[serde(with = "url_serde")]
-    pub url: Url,
+    pub url: String,
 
     /// The optional username used to authenticate with the remote.
     pub username: Option<String>,
@@ -111,9 +107,7 @@ pub struct GitClone {
 #[graphql(name = "GitCloneInput")]
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, juniper::GraphQLInputObject)]
 pub struct Input {
-    #[serde(with = "url_serde")]
-    url: Url,
-
+    url: String,
     username: Option<String>,
     password: Option<String>,
     path: Option<String>,
@@ -131,11 +125,11 @@ impl From<Input> for GitClone {
     }
 }
 
-impl<'a> Processor<'a> for GitClone {
-    const NAME: &'static str = "Git Clone";
-
-    type Error = Error;
-    type Output = String;
+impl GitClone {
+    /// Convert the string URL into a URL object.
+    fn url(&self) -> Result<Url, Error> {
+        Url::from_str(&self.url).map_err(Into::into)
+    }
 
     /// Validate the `GitClone` configuration.
     ///
@@ -143,12 +137,17 @@ impl<'a> Processor<'a> for GitClone {
     ///
     /// This method returns an error under the following circumstances:
     ///
+    /// * If the URL is an invalid format, the [`Error::Url`] error variant is
+    ///   returned.
+    ///
     /// * If a `path` option is provided that contains anything other than a
     ///   simple relative path such as `my/path`. Anything such as `../`, or
     ///   `/etc` is not allowed. The returned error is of type [`Error::Path`].
     ///
     /// In a future update, this will also validate remote connectivity.
-    fn validate(&self) -> Result<(), Self::Error> {
+    fn validate(&self) -> Result<(), Error> {
+        let _ = self.url()?;
+
         if let Some(path) = &self.path {
             let path = path::Path::new(path);
 
@@ -160,6 +159,13 @@ impl<'a> Processor<'a> for GitClone {
 
         Ok(())
     }
+}
+
+impl<'a> Processor<'a> for GitClone {
+    const NAME: &'static str = "Git Clone";
+
+    type Error = Error;
+    type Output = String;
 
     /// Clone the repository as defined by the provided configuration.
     ///
@@ -174,6 +180,8 @@ impl<'a> Processor<'a> for GitClone {
     ///
     /// Any errors during cloning will return an [`Error::Git`] result value.
     fn run(&self, context: &Context) -> Result<Option<Self::Output>, Self::Error> {
+        self.validate()?;
+
         let mut callbacks = RemoteCallbacks::new();
         let mut fetch_options = FetchOptions::new();
         let workspace = context.workspace_path();
@@ -207,6 +215,9 @@ pub enum Error {
     /// An error occurred while cloning the Git repository.
     Git(git2::Error),
 
+    /// The URL has an invalid format.
+    Url(url::ParseError),
+
     #[doc(hidden)]
     __Unknown, // Match against _ instead, more variants may be added in the future.
 }
@@ -216,8 +227,15 @@ impl fmt::Display for Error {
         match *self {
             Error::Path => write!(f, "Path error: invalid path location"),
             Error::Git(ref err) => write!(f, "Git error: {}", err),
+            Error::Url(ref err) => write!(f, "URL error: {}", err),
             Error::__Unknown => unreachable!(),
         }
+    }
+}
+
+impl From<url::ParseError> for Error {
+    fn from(err: url::ParseError) -> Self {
+        Error::Url(err)
     }
 }
 
@@ -226,6 +244,7 @@ impl error::Error for Error {
         match *self {
             Error::Path => None,
             Error::Git(ref err) => Some(err),
+            Error::Url(ref err) => Some(err),
             Error::__Unknown => unreachable!(),
         }
     }
@@ -245,7 +264,7 @@ mod tests {
         GitClone {
             username: None,
             password: None,
-            url: Url::parse("http://127.0.0.1").unwrap(),
+            url: "http://127.0.0.1".to_owned(),
             path: None,
         }
     }

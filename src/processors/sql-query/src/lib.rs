@@ -45,11 +45,10 @@
 //! use serde_json::{from_str, json, Value};
 //!
 //! let context = Context::new()?;
-//! let database_url = Url::parse("postgres://postgres@127.0.0.1")?;
 //!
 //! let processor = SqlQuery {
 //!     statement: "SELECT id, name FROM users LIMIT 2".to_owned(),
-//!     url: database_url,
+//!     url: "postgres://postgres@127.0.0.1".to_owned(),
 //! };
 //!
 //! let output = processor.run(&context)?.expect("Some");
@@ -99,7 +98,7 @@ use sqlparser::dialect::GenericSqlDialect;
 use sqlparser::sqlast::SQLStatement;
 use sqlparser::sqlparser::{Parser, ParserError};
 use std::collections::HashMap;
-use std::{error, fmt};
+use std::{error, fmt, str::FromStr};
 use url::Url;
 
 /// The processor configuration.
@@ -112,8 +111,7 @@ pub struct SqlQuery {
     /// The URL of the database server.
     ///
     /// Use URLs such as `postgres://postgres:mypassword@127.0.0.1/my_database`
-    #[serde(with = "url_serde")]
-    pub url: Url,
+    pub url: String,
 }
 
 /// The GraphQL [Input Object][io] used to initialize the processor via an API.
@@ -130,8 +128,7 @@ pub struct SqlQuery {
 pub struct Input {
     statement: String,
 
-    #[serde(with = "url_serde")]
-    url: Url,
+    url: String,
 }
 
 #[cfg(feature = "juniper")]
@@ -145,6 +142,55 @@ impl From<Input> for SqlQuery {
 }
 
 impl SqlQuery {
+    /// Convert the string URL into a URL object.
+    fn url(&self) -> Result<Url, Error> {
+        Url::from_str(&self.url).map_err(Into::into)
+    }
+
+    /// Validate that the provided `statement` is valid, and the `url` has a
+    /// supported scheme.
+    ///
+    /// # Errors
+    ///
+    /// If the URL contains invalid syntax, the [`Error::Url`] error variant is
+    /// returned.
+    ///
+    /// If the statement contains invalid syntax, the [`Error::Syntax`] error
+    /// variant is returned.
+    ///
+    /// If multiple statements are detected, the [`Error::MultipleStatements`]
+    /// error variant is returned.
+    ///
+    /// If the statement does not start with "SELECT", the
+    /// [`Error::StatementType`] error variant is returned.
+    ///
+    /// If the `url` scheme does not match `postgres`, the [`Error::Scheme`]
+    /// error variant is returned.
+    fn validate(&self) -> Result<(), Error> {
+        // Validate URL syntax.
+        let url = self.url()?;
+
+        // Validate SQL syntax.
+        let ast = Parser::parse_sql(&GenericSqlDialect {}, self.statement.to_owned())
+            .map_err(Error::from)?;
+
+        // Only one statement per query is supported.
+        if ast.len() != 1 {
+            return Err(Error::MultipleStatements);
+        };
+
+        // Only the SELECT statement is supported.
+        match ast[0] {
+            SQLStatement::SQLSelect(_) => (),
+            _ => return Err(Error::StatementType),
+        };
+
+        match url.scheme() {
+            "postgres" => Ok(()),
+            scheme => Err(Error::Scheme(scheme.to_owned())),
+        }
+    }
+
     fn run_postgres_statement(&self) -> Result<Option<String>, Error> {
         use postgres::{types::Type as T, Client, NoTls};
         use serde_json::{to_string, to_value};
@@ -171,7 +217,7 @@ impl SqlQuery {
                 //
                 // To get some guidance, see the following URL:
                 //
-                // https://docs.rs/postgres/0.16.0-rc.1/postgres/types/trait.FromSql.html
+                // https://docs.rs/postgres/0.16.0-rc.2/postgres/types/trait.FromSql.html
                 let value: Value = match column.type_() {
                     &T::BOOL => to_value::<Option<bool>>(row.get(n))?,
                     &T::INT4 => to_value::<Option<i32>>(row.get(n))?,
@@ -209,44 +255,6 @@ impl<'a> Processor<'a> for SqlQuery {
     type Error = Error;
     type Output = String;
 
-    /// Validate that the provided `statement` is valid, and the `url` has a
-    /// supported scheme.
-    ///
-    /// # Errors
-    ///
-    /// If the statement contains invalid syntax, the [`Error::Syntax`] error
-    /// variant is returned.
-    ///
-    /// If multiple statements are detected, the [`Error::MultipleStatements`]
-    /// error variant is returned.
-    ///
-    /// If the statement does not start with "SELECT", the
-    /// [`Error::StatementType`] error variant is returned.
-    ///
-    /// If the `url` scheme does not match `postgres`, the [`Error::Scheme`]
-    /// error variant is returned.
-    fn validate(&self) -> Result<(), Self::Error> {
-        // Validate SQL syntax.
-        let ast = Parser::parse_sql(&GenericSqlDialect {}, self.statement.to_owned())
-            .map_err(Error::from)?;
-
-        // Only one statement per query is supported.
-        if ast.len() != 1 {
-            return Err(Error::MultipleStatements);
-        };
-
-        // Only the SELECT statement is supported.
-        match ast[0] {
-            SQLStatement::SQLSelect(_) => (),
-            _ => return Err(Error::StatementType),
-        };
-
-        match self.url.scheme() {
-            "postgres" => Ok(()),
-            scheme => Err(Error::Scheme(scheme.to_owned())),
-        }
-    }
-
     /// Run the provided `statement` against a database and return the values as
     /// an array of JSON objects.
     ///
@@ -269,7 +277,9 @@ impl<'a> Processor<'a> for SqlQuery {
     /// If anything happens during serialization, the [`Error::Serde`] error is
     /// returned.
     fn run(&self, _context: &Context) -> Result<Option<Self::Output>, Self::Error> {
-        match self.url.scheme() {
+        self.validate()?;
+
+        match self.url()?.scheme() {
             "postgres" => self.run_postgres_statement(),
             "sqlite" => self.run_sqlite_statement(),
             "mysql" => self.run_mysql_statement(),
@@ -315,6 +325,9 @@ pub enum Error {
     /// The `statement` field contains invalid SQL syntax.
     Syntax(String),
 
+    /// The URL has an invalid format.
+    Url(url::ParseError),
+
     #[doc(hidden)]
     __Unknown, // Match against _ instead, more variants may be added in the future.
 }
@@ -329,6 +342,7 @@ impl fmt::Display for Error {
             Error::Serde(ref err) => write!(f, "Serde error: {}", err),
             Error::StatementType => write!(f, "Non-SELECT statements are not supported"),
             Error::Syntax(ref string) => write!(f, "Syntax error: {}", string),
+            Error::Url(ref err) => write!(f, "URL error: {}", err),
             Error::__Unknown => unimplemented!(),
         }
     }
@@ -344,8 +358,15 @@ impl error::Error for Error {
             | Error::Syntax(_) => None,
             Error::Postgres(ref err) => Some(err),
             Error::Serde(ref err) => Some(err),
+            Error::Url(ref err) => Some(err),
             Error::__Unknown => unreachable!(),
         }
+    }
+}
+
+impl From<url::ParseError> for Error {
+    fn from(err: url::ParseError) -> Self {
+        Error::Url(err)
     }
 }
 
@@ -393,7 +414,7 @@ mod tests {
     fn processor_stub() -> SqlQuery {
         SqlQuery {
             statement: "SELECT * FROM table".to_owned(),
-            url: Url::parse("postgres://postgres@127.0.0.1").unwrap(),
+            url: "postgres://postgres@127.0.0.1".to_owned(),
         }
     }
 
@@ -415,7 +436,7 @@ mod tests {
         #[test]
         fn test_empty_output() {
             let mut processor = processor_stub();
-            processor.statement = "SELECT".to_owned();
+            processor.statement = "SELECT null WHERE true = false".to_owned();
 
             let context = Context::new().unwrap();
             let output = processor.run(&context).unwrap();
@@ -562,7 +583,7 @@ mod tests {
         #[test]
         fn test_postgres_scheme() {
             let mut processor = processor_stub();
-            processor.url = Url::parse("postgres://127.0.0.1").unwrap();
+            processor.url = "postgres://127.0.0.1".to_owned();
 
             processor.validate().unwrap()
         }
@@ -571,7 +592,7 @@ mod tests {
         #[should_panic]
         fn test_sqlite_scheme() {
             let mut processor = processor_stub();
-            processor.url = Url::parse("sqlite://127.0.0.1").unwrap();
+            processor.url = "sqlite://127.0.0.1".to_owned();
 
             processor.validate().unwrap()
         }
@@ -580,7 +601,7 @@ mod tests {
         #[should_panic]
         fn test_mysql_scheme() {
             let mut processor = processor_stub();
-            processor.url = Url::parse("mysql://127.0.0.1").unwrap();
+            processor.url = "mysql://127.0.0.1".to_owned();
 
             processor.validate().unwrap()
         }
@@ -589,7 +610,16 @@ mod tests {
         #[should_panic]
         fn test_invalid_scheme() {
             let mut processor = processor_stub();
-            processor.url = Url::parse("invalid://127.0.0.1").unwrap();
+            processor.url = "invalid://127.0.0.1".to_owned();
+
+            processor.validate().unwrap()
+        }
+
+        #[test]
+        #[should_panic]
+        fn test_invalid_url() {
+            let mut processor = processor_stub();
+            processor.url = "invalid".to_owned();
 
             processor.validate().unwrap()
         }

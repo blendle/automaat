@@ -334,12 +334,9 @@ impl<'a> NewJobStep<'a> {
     /// Requires a reference to a `Job`, in order to create the correct data
     /// reference.
     ///
-    /// This method can return an error if the database insert failed, or if the
-    /// associated processor is invalid.
+    /// This method can return an error if the database insert failed.
     pub(crate) fn add_to_job(self, conn: &PgConnection, job: &Job) -> Result<(), Box<dyn Error>> {
         use crate::schema::job_steps::dsl::*;
-
-        self.processor.validate()?;
 
         let values = (
             name.eq(&self.name),

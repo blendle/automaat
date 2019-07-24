@@ -130,12 +130,7 @@ impl From<Input> for ShellCommand {
     }
 }
 
-impl<'a> Processor<'a> for ShellCommand {
-    const NAME: &'static str = "Shell Command";
-
-    type Error = Error;
-    type Output = String;
-
+impl ShellCommand {
     /// Validate the `ShellCommand` configuration.
     ///
     /// # Errors
@@ -146,7 +141,7 @@ impl<'a> Processor<'a> for ShellCommand {
     ///
     /// [`cwd`]: ShellCommand::cwd
     /// [`paths`]: ShellCommand::paths
-    fn validate(&self) -> Result<(), Self::Error> {
+    fn validate(&self) -> Result<(), Error> {
         fn check_path(path: &str) -> Result<(), Error> {
             let path = path::Path::new(path);
 
@@ -168,6 +163,13 @@ impl<'a> Processor<'a> for ShellCommand {
 
         Ok(())
     }
+}
+
+impl<'a> Processor<'a> for ShellCommand {
+    const NAME: &'static str = "Shell Command";
+
+    type Error = Error;
+    type Output = String;
 
     /// Run the shell command as defined by the provided configuration.
     ///

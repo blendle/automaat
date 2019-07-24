@@ -193,28 +193,6 @@ mod tests {
         }
     }
 
-    mod validate {
-        use super::*;
-
-        #[test]
-        fn test_empty_output() {
-            let processor = PrintOutput {
-                output: "".to_owned(),
-            };
-
-            processor.validate().unwrap()
-        }
-
-        #[test]
-        fn test_string_output() {
-            let processor = PrintOutput {
-                output: "hello".to_owned(),
-            };
-
-            processor.validate().unwrap()
-        }
-    }
-
     #[test]
     fn test_readme_deps() {
         version_sync::assert_markdown_deps_updated!("README.md");

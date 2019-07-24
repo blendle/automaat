@@ -38,14 +38,14 @@ input CreateVariableInput {
 scalar DateTimeUtc
 
 type GitClone {
-  url: Url!
+  url: String!
   username: String
   password: String
   path: String
 }
 
 input GitCloneInput {
-  url: Url!
+  url: String!
   username: String
   password: String
   path: String
@@ -68,7 +68,7 @@ input HeaderInput {
 }
 
 type HttpRequest {
-  url: Url!
+  url: String!
   method: Method!
   headers: [Header!]!
   body: String
@@ -76,7 +76,7 @@ type HttpRequest {
 }
 
 input HttpRequestInput {
-  url: Url!
+  url: String!
   method: Method!
   headers: [HeaderInput!]
   body: String
@@ -204,13 +204,13 @@ type QueryRoot {
 type RedisCommand {
   command: String!
   arguments: [String!]
-  url: Url!
+  url: String!
 }
 
 input RedisCommandInput {
   command: String!
   arguments: [String!]
-  url: Url!
+  url: String!
 }
 
 input SearchTaskInput {
@@ -239,12 +239,12 @@ input ShellCommandInput {
 
 type SqlQuery {
   statement: String!
-  url: Url!
+  url: String!
 }
 
 input SqlQueryInput {
   statement: String!
-  url: Url!
+  url: String!
 }
 
 type Step {
@@ -288,8 +288,6 @@ input UpdatePrivilegesInput {
   id: ID!
   privileges: [String!]!
 }
-
-scalar Url
 
 type Variable {
   id: ID!

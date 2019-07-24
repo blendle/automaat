@@ -114,8 +114,7 @@ use url::Url;
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct HttpRequest {
     /// The URL to make the request to.
-    #[serde(with = "url_serde")]
-    pub url: Url,
+    pub url: String,
 
     /// The HTTP method (GET, POST, etc.) to use.
     pub method: Method,
@@ -222,8 +221,7 @@ impl From<HeaderInput> for Header {
 #[graphql(name = "HttpRequestInput")]
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, juniper::GraphQLInputObject)]
 pub struct Input {
-    #[serde(with = "url_serde")]
-    url: Url,
+    url: String,
     method: Method,
     headers: Option<Vec<HeaderInput>>,
     body: Option<String>,
@@ -259,19 +257,21 @@ impl From<Input> for HttpRequest {
     }
 }
 
-impl<'a> Processor<'a> for HttpRequest {
-    const NAME: &'static str = "HTTP Request";
-
-    type Error = Error;
-    type Output = String;
+impl HttpRequest {
+    /// Convert the string URL into a URL object.
+    fn url(&self) -> Result<Url, Error> {
+        Url::from_str(&self.url).map_err(Into::into)
+    }
 
     /// Validate the `HttpRequest` configuration.
     ///
     /// # Errors
     ///
     /// This method returns an error if one of the provided HTTP headers has an
-    /// invalid format.
-    fn validate(&self) -> Result<(), Self::Error> {
+    /// invalid format, or if the URL is invalid.
+    fn validate(&self) -> Result<(), Error> {
+        let _ = self.url()?;
+
         for header in &self.headers {
             let _ = header::HeaderName::from_str(header.name.as_str())?;
             let _ = header::HeaderValue::from_str(header.value.as_str())?;
@@ -279,6 +279,13 @@ impl<'a> Processor<'a> for HttpRequest {
 
         Ok(())
     }
+}
+
+impl<'a> Processor<'a> for HttpRequest {
+    const NAME: &'static str = "HTTP Request";
+
+    type Error = Error;
+    type Output = String;
 
     /// Do the configured HTTP request, and return its results.
     ///
@@ -291,6 +298,9 @@ impl<'a> Processor<'a> for HttpRequest {
     ///
     /// # Errors
     ///
+    /// If the provided URL is invalid, the [`Error::Url`] error variant is
+    /// returned.
+    ///
     /// If the provided HTTP headers are invalid, the [`Error::Header`] error
     /// variant is returned.
     ///
@@ -300,6 +310,8 @@ impl<'a> Processor<'a> for HttpRequest {
     /// If the response status does not match one of the provided status
     /// assertions, the [`Error::Status`] error variant is returned.
     fn run(&self, _context: &Context) -> Result<Option<Self::Output>, Self::Error> {
+        self.validate()?;
+
         // request builder
         let mut request = Client::new().request(self.method.into(), self.url.as_str());
 
@@ -351,6 +363,9 @@ pub enum Error {
     /// The expected response status did not match the actual status.
     Status(i32),
 
+    /// The URL has an invalid format.
+    Url(url::ParseError),
+
     #[doc(hidden)]
     __Unknown, // Match against _ instead, more variants may be added in the future.
 }
@@ -359,6 +374,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Error::Response(ref err) => write!(f, "Response error: {}", err),
+            Error::Url(ref err) => write!(f, "URL error: {}", err),
             Error::Header(ref err) => write!(f, "Invalid header: {}", err),
             Error::Status(status) => write!(f, "Invalid status code: {}", status),
             Error::__Unknown => unreachable!(),
@@ -370,6 +386,7 @@ impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match *self {
             Error::Response(ref err) => Some(err),
+            Error::Url(ref err) => Some(err),
             Error::Header(_) | Error::Status(_) => None,
             Error::__Unknown => unreachable!(),
         }
@@ -379,6 +396,12 @@ impl error::Error for Error {
 impl From<reqwest::Error> for Error {
     fn from(err: reqwest::Error) -> Self {
         Error::Response(err)
+    }
+}
+
+impl From<url::ParseError> for Error {
+    fn from(err: url::ParseError) -> Self {
+        Error::Url(err)
     }
 }
 
@@ -400,7 +423,7 @@ mod tests {
 
     fn processor_stub() -> HttpRequest {
         HttpRequest {
-            url: Url::parse("https://httpbin.org/status/200").unwrap(),
+            url: "https://httpbin.org/status/200".to_owned(),
             method: Method::GET,
             headers: vec![],
             body: None,
@@ -424,7 +447,7 @@ mod tests {
         #[test]
         fn test_response_body() {
             let mut processor = processor_stub();
-            processor.url = Url::parse("https://httpbin.org/range/5").unwrap();
+            processor.url = "https://httpbin.org/range/5".to_owned();
 
             let context = Context::new().unwrap();
             let output = processor.run(&context).unwrap();
@@ -435,7 +458,7 @@ mod tests {
         #[test]
         fn test_request_body() {
             let mut processor = processor_stub();
-            processor.url = Url::parse("https://httpbin.org/anything").unwrap();
+            processor.url = "https://httpbin.org/anything".to_owned();
             processor.body = Some("hello world".to_owned());
 
             let context = Context::new().unwrap();
@@ -447,7 +470,7 @@ mod tests {
         #[test]
         fn test_valid_status() {
             let mut processor = processor_stub();
-            processor.url = Url::parse("https://httpbin.org/status/200").unwrap();
+            processor.url = "https://httpbin.org/status/200".to_owned();
             processor.assert_status = vec![200, 204];
 
             let context = Context::new().unwrap();
@@ -459,7 +482,7 @@ mod tests {
         #[test]
         fn test_invalid_status() {
             let mut processor = processor_stub();
-            processor.url = Url::parse("https://httpbin.org/status/404").unwrap();
+            processor.url = "https://httpbin.org/status/404".to_owned();
             processor.assert_status = vec![200, 201];
 
             let context = Context::new().unwrap();

@@ -142,18 +142,6 @@ impl<'a> Processor<'a> for JsonEdit {
     type Error = Error;
     type Output = String;
 
-    /// Validate that the provided `program` syntax is valid.
-    ///
-    /// # Errors
-    ///
-    /// If the program contains invalid syntax, the [`Error::Json`] error
-    /// variant is returned.
-    fn validate(&self) -> Result<(), Self::Error> {
-        json_query::compile(self.program.as_str())
-            .map(|_| ())
-            .map_err(Into::into)
-    }
-
     /// Run the provided `program` against the `json` data.
     ///
     /// # Output
@@ -454,27 +442,6 @@ mod tests {
                 .to_owned();
 
             assert_eq!(output, expected)
-        }
-    }
-
-    mod validate {
-        use super::*;
-
-        #[test]
-        fn test_valid_syntax() {
-            let mut processor = processor_stub();
-            processor.program = r".hello".to_owned();
-
-            processor.validate().unwrap()
-        }
-
-        #[test]
-        #[should_panic]
-        fn test_invalid_syntax() {
-            let mut processor = processor_stub();
-            processor.program = r"..hello \NO".to_owned();
-
-            processor.validate().unwrap()
         }
     }
 

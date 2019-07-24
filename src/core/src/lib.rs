@@ -30,8 +30,8 @@
 //! * [`automaat-processor-print-output`][po] – Return a pre-defined string.
 //!
 //! Using the `automaat-server` crate, you can combine multiple processors into
-//! a single `Pipeline`, combined with a set of runtime `Variable`s, to create
-//! easy-to-use workflows to perform a specific task.
+//! a single `Task`, combined with a set of runtime `Variable`s, to create
+//! easy-to-use workflows to perform a specific job.
 //!
 //! [pg]: https://docs.rs/automaat-processor-git-clone
 //! [ps]: https://docs.rs/automaat-processor-shell-command
@@ -92,45 +92,22 @@ pub trait Processor<'de>: fmt::Debug + Serialize + Deserialize<'de> {
 
     /// The processor can return any (successful) output it wants, as long as
     /// that type implements the [`fmt::Display`] trait.
-    ///
-    /// In the `automaat-server` application, the output is turned into a
-    /// string, and is processed as markdown.
-    ///
-    /// While not required, it's best-practice to take advantage of this fact,
-    /// to format the output in a pleasant way for users.
     type Output: fmt::Display;
 
-    /// Actually runs the pipeline, performing whatever side-effects are defined
-    /// in this specific processor.
+    /// Runs the processor.
     ///
-    /// The [`Context`] object can be used to access a temporary workspace
-    /// directory that is shared across all processors using the same context
-    /// object.
+    /// The [`Context`] object object contains anything specific to the current
+    /// run of the processor.
+    ///
+    /// # Output
+    ///
+    /// When a processor has run to completion, it is expected to return
+    /// whatever variable information could be used via `Self::Output`.
     ///
     /// # Errors
     ///
-    /// When a processor has run to completion, it is supposed to return
-    /// whatever valuable information could be used via `Self::Output`. If an
-    /// unexpected result occurred, `Self::Error` should be returned.
+    /// If an unexpected result occurred, `Self::Error` should be returned.
     fn run(&self, context: &Context) -> Result<Option<Self::Output>, Self::Error>;
-
-    /// The `validate` method is used by the `automaat-server` application to do
-    /// a runtime check to make sure that the processor is correctly configured
-    /// before running it.
-    ///
-    /// This is an additional validation, on top of whatever invariant is
-    /// guaranteed using the type system.
-    ///
-    /// The default implementation of this method always returns `Ok`.
-    ///
-    /// # Errors
-    ///
-    /// If validation fails, an error should be returned. The error message can
-    /// be used by clients such as `automaat-web-client` to show an informative
-    /// message to the user.
-    fn validate(&self) -> Result<(), Self::Error> {
-        Ok(())
-    }
 }
 
 /// The `Context` is an object that can be shared across multiple processor runs
@@ -203,33 +180,12 @@ impl From<io::Error> for ContextError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde::{Deserialize, Serialize};
 
     #[test]
     fn test_context_workspace_path() {
         let context = Context::new().unwrap();
 
         assert!(context.workspace_path().exists())
-    }
-
-    #[test]
-    fn test_processor_validate_default() {
-        #[derive(Debug, Deserialize, Serialize)]
-        struct Stub;
-
-        impl<'a> Processor<'a> for Stub {
-            const NAME: &'static str = "Stub Processor";
-
-            type Output = String;
-            type Error = io::Error;
-
-            fn run(&self, _: &Context) -> Result<Option<Self::Output>, Self::Error> {
-                Ok(None)
-            }
-        }
-
-        let processor = Stub;
-        processor.validate().unwrap();
     }
 
     #[test]

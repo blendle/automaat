@@ -18,15 +18,13 @@
 //! # fn main() -> Result<(), Box<std::error::Error>> {
 //! use automaat_core::{Context, Processor};
 //! use automaat_processor_redis_command::RedisCommand;
-//! use url::Url;
 //!
 //! let context = Context::new()?;
-//! let redis_url = Url::parse("redis://127.0.0.1")?;
 //!
 //! let processor = RedisCommand {
 //!     command: "PING".to_owned(),
 //!     arguments: Some(vec!["hello world".to_owned()]),
-//!     url: redis_url
+//!     url: "redis://127.0.0.1".to_owned(),
 //! };
 //!
 //! let output = processor.run(&context)?;
@@ -70,7 +68,7 @@
 use automaat_core::{Context, Processor};
 use redis::RedisError;
 use serde::{Deserialize, Serialize};
-use std::{error, fmt, str::from_utf8};
+use std::{error, fmt, str::from_utf8, str::FromStr};
 use url::Url;
 
 /// The processor configuration.
@@ -96,8 +94,7 @@ pub struct RedisCommand {
     /// details.
     ///
     /// [redis-rs]: https://docs.rs/redis/latest/redis#connection-parameters
-    #[serde(with = "url_serde")]
-    pub url: Url,
+    pub url: String,
 }
 
 /// The GraphQL [Input Object][io] used to initialize the processor via an API.
@@ -114,8 +111,7 @@ pub struct RedisCommand {
 pub struct Input {
     command: String,
     arguments: Option<Vec<String>>,
-    #[serde(with = "url_serde")]
-    url: Url,
+    url: String,
 }
 
 #[cfg(feature = "juniper")]
@@ -155,7 +151,8 @@ impl<'a> Processor<'a> for RedisCommand {
     fn run(&self, _context: &Context) -> Result<Option<Self::Output>, Self::Error> {
         use redis::Value;
 
-        let client = redis::Client::open(self.url.as_str())?;
+        let url = Url::from_str(&self.url)?;
+        let client = redis::Client::open(url.as_str())?;
         let conn = client.get_connection()?;
         let args = self.arguments.clone().unwrap_or_else(Default::default);
 
@@ -210,6 +207,9 @@ pub enum Error {
     /// directly understood by the library.
     Extension(RedisError),
 
+    /// The URL has an invalid format.
+    Url(url::ParseError),
+
     #[doc(hidden)]
     __Unknown, // Match against _ instead, more variants may be added in the future.
 }
@@ -226,8 +226,15 @@ impl fmt::Display for Error {
             | Error::InvalidClientConfig(ref err)
             | Error::Io(ref err)
             | Error::Extension(ref err) => write!(f, "Redis error: {}", err),
+            Error::Url(ref err) => write!(f, "URL error: {}", err),
             Error::__Unknown => unreachable!(),
         }
+    }
+}
+
+impl From<url::ParseError> for Error {
+    fn from(err: url::ParseError) -> Self {
+        Error::Url(err)
     }
 }
 
@@ -243,6 +250,7 @@ impl error::Error for Error {
             | Error::InvalidClientConfig(ref err)
             | Error::Io(ref err)
             | Error::Extension(ref err) => Some(err),
+            Error::Url(ref err) => Some(err),
             Error::__Unknown => unreachable!(),
         }
     }
@@ -274,7 +282,7 @@ mod tests {
         RedisCommand {
             command: "PING".to_owned(),
             arguments: None,
-            url: Url::parse("redis://127.0.0.1").unwrap(),
+            url: "redis://127.0.0.1".to_owned(),
         }
     }
 

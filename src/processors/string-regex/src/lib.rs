@@ -172,26 +172,6 @@ impl<'a> Processor<'a> for StringRegex {
     type Error = Error;
     type Output = String;
 
-    /// Validate that the provided [`regex`] pattern is valid.
-    ///
-    /// # Errors
-    ///
-    /// If the regex syntax is invalid, the [`Error::Syntax`] error variant is
-    /// returned.
-    ///
-    /// If the regex pattern is too big (highly unlikely), the
-    /// [`Error::CompiledTooBig`] error variant is returned.
-    ///
-    /// Both variants wrap the original [Regex crate errors].
-    ///
-    /// [`regex`]: StringRegex::regex
-    /// [Regex crate errors]: regex::Error
-    fn validate(&self) -> Result<(), Self::Error> {
-        Regex::new(self.regex.as_str())
-            .map(|_| ())
-            .map_err(Into::into)
-    }
-
     /// Do a regex match (and replace), based on the processor configuration.
     ///
     /// # Output
@@ -209,8 +189,11 @@ impl<'a> Processor<'a> for StringRegex {
     /// set, the error will contain the provided message. If not, a default
     /// message is provided.
     ///
-    /// If the regex pattern is invalid, the same errors are returned as
-    /// [`validate`].
+    /// If the regex syntax is invalid, the [`Error::Syntax`] error variant is
+    /// returned.
+    ///
+    /// If the regex pattern is too big (highly unlikely), the
+    /// [`Error::CompiledTooBig`] error variant is returned.
     ///
     /// [`replace`]: StringRegex::replace
     /// [`regex`]: StringRegex::regex
@@ -385,27 +368,6 @@ mod tests {
             let output = processor.run(&context).unwrap().expect("Some");
 
             assert_eq!(output, "hi world!\nhi universe!".to_owned())
-        }
-    }
-
-    mod validate {
-        use super::*;
-
-        #[test]
-        fn test_valid_syntax() {
-            let mut processor = processor_stub();
-            processor.regex = r"hello \w+".to_owned();
-
-            processor.validate().unwrap()
-        }
-
-        #[test]
-        #[should_panic]
-        fn test_invalid_syntax() {
-            let mut processor = processor_stub();
-            processor.regex = r"hello \NO".to_owned();
-
-            processor.validate().unwrap()
         }
     }
 

@@ -24,12 +24,6 @@ macro_rules! impl_processors {
                     $(Processor::$processor(p) => p.run(context).map_err(Into::into)),+
                 }
             }
-
-            pub(crate) fn validate(&self) -> Result<(), Box<dyn error::Error>> {
-                match self {
-                    $(Processor::$processor(p) => p.validate().map_err(Into::into)),+
-                }
-            }
         }
 
         // Dynamically construct items by combining `$processor` and `Input` to
