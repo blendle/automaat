@@ -73,6 +73,9 @@ lazy_static::lazy_static! {
 }
 
 fn main() {
+    // Make sure encryption secret is set by loading it once.
+    let _ = &ENCRYPTION_SECRET.to_string();
+
     let args: Vec<String> = env::args().collect();
     let run = || match args.get(1).map(String::as_str) {
         Some("server") => Server::from_environment()?.run_to_completion(),
