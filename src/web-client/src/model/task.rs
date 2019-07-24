@@ -141,11 +141,19 @@ impl Task {
         self.active_job_idx = Some(self.jobs.len() - 1)
     }
 
-    /// Hide the login view and unset any active job as inactive, but keep the
-    /// job around in the cache.
+    /// Hide the login view and unset any non-running active job as inactive,
+    /// but keep the job around in the cache.
+    ///
+    /// If the job is still running, the job is kept active, so that its
+    /// progress is shown whenever the task is opened again.
     pub(crate) fn deactivate(&mut self) {
         self.show_login = false;
-        self.active_job_idx = None
+
+        if let Some(job) = self.active_job() {
+            if !job.is_running() {
+                self.active_job_idx = None
+            }
+        }
     }
 
     /// Get the job that is currently marked as "active", if any.

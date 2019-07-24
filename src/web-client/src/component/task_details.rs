@@ -220,10 +220,6 @@ where
         button(&cx)
             .attr("class", "back")
             .attr("type", "button")
-            .bool_attr(
-                "disabled",
-                self.task.active_job().map_or(false, Job::is_running),
-            )
             .child(span(&cx).child(i(&cx).finish()).finish())
             .child(span(&cx).child(text(" Back")).finish())
             .on("click", move |root, vdom, _event| {

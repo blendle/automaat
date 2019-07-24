@@ -242,21 +242,6 @@ impl task::Actions for Controller {
     fn close_active_task(root: &mut dyn RootRender, vdom: VdomWeak) {
         let app = root.unwrap_mut::<App>();
         let mut tasks = app.tasks_mut().unwrap_throw();
-        let active_task = tasks.active_task_mut().unwrap_throw();
-
-        // It's currently not possible to close the active task if it still has
-        // an actively running job.
-        //
-        // This is also handled in the UI by disabling the button, but this is
-        // the "one true check" that also works when trying to close a task
-        // using keyboard shortcuts.
-        //
-        // It _is_ possible to use the browser's back button, but there's
-        // nothing we can do about that, and so far, there hasn't been an issue
-        // with things breaking when doing so.
-        if active_task.active_job().map_or(false, job::Job::is_running) {
-            return;
-        }
 
         tasks.disable_active_task();
         match tasks.active_task() {
