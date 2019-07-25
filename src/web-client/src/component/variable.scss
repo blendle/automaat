@@ -45,7 +45,12 @@
     .menu {
       @extend %menu;
       @extend .is-hoverable;
-      @extend .is-up;
+    }
+
+    .dropdown-menu > div {
+      // break out of the parent's overflow:scroll
+      position: fixed;
+      max-width: 190px;
     }
 
     > span > a,

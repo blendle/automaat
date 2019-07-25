@@ -22,10 +22,19 @@
     @extend .modal-card-body;
     @extend .has-background-white-ter;
 
-    overflow: visible;
+    overflow: scroll;
+    padding-bottom: 0;
 
     p { @extend .content; }
     > div { @extend .container; }
+
+    // make sure the bottom padding remains with overflow:scroll
+    &::after {
+      content: "";
+      display: block;
+      height: 20px;
+      width: 100%;
+    }
   }
 
   > div:first-child { @extend .modal-background; }
@@ -48,7 +57,13 @@
       @extend .message;
 
       .message-staging { display: none; }
-      .message-body { @extend .content; }
+
+      .message-body {
+        @extend .content;
+
+        // visual changes to make the output a bit more compacted
+        li { margin-top: 0; }
+      }
     }
   }
 
