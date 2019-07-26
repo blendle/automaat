@@ -37,20 +37,23 @@ struct TemplateData<'a> {
     /// Global variables available to all steps.
     global: HashMap<&'a str, &'a str>,
 
-    /// System level variables that cannot be altered.
-    sys: SystemVariables<'a>,
+    /// Variables that expose the global task context.
+    ///
+    /// At the moment this only exposes the "Workspace Path" value.
+    context: ContextVariables<'a>,
+
+    /// This data set contains the output of all steps that already ran. The
+    /// output value of each step is assigned the key matching the name of that
+    /// step.
+    ///
+    /// If two steps have the same name, the one that ran last will occupy that
+    /// key with its output value.
+    output: HashMap<&'a str, &'a str>,
 }
 
 /// Contains all exposed system variables.
 #[derive(Serialize)]
-struct SystemVariables<'a> {
-    /// Contains the output of the previous step that ran as part of this job.
-    ///
-    /// This value is an empty string if this is the first step to run, or the
-    /// previous step provided no output.
-    #[serde(rename = "previous step output")]
-    step_output: &'a str,
-
+struct ContextVariables<'a> {
     /// Contains the path to the current workspace.
     #[serde(rename = "workspace path")]
     workspace_path: &'a str,
@@ -121,21 +124,23 @@ impl JobStep {
         &mut self,
         conn: &PgConnection,
         context: &Context,
-        input: Option<&str>,
-    ) -> Result<Option<String>, Box<dyn Error>> {
+        mut output: HashMap<String, String>,
+    ) -> Result<HashMap<String, String>, Box<dyn Error>> {
         self.start(conn)?;
 
         // TODO: this needs to go in a transaction, and the changes reverted if
         // they can't be saved... Also goes for many other places.
 
-        let result = match self.formalize_processor(input, context, conn) {
+        let result = match self.formalize_processor(&mut output, context, conn) {
             Ok(p) => p.run(context),
             Err(err) => Err(format!("job processor cannot be deserialized: {}", err).into()),
         };
 
         match result {
-            Ok(output) => {
-                self.finished(conn, Status::Ok, output.clone())?;
+            Ok(out) => {
+                self.finished(conn, Status::Ok, out.clone())?;
+
+                let _ = output.insert(self.name.to_owned(), out.unwrap_or_default());
                 Ok(output)
             }
             Err(err) => {
@@ -175,7 +180,7 @@ impl JobStep {
     /// by replacing any templated variables.
     fn formalize_processor(
         &mut self,
-        input: Option<&str>,
+        output_values: &mut HashMap<String, String>,
         context: &Context,
         conn: &PgConnection,
     ) -> Result<Processor, Box<dyn Error>> {
@@ -198,14 +203,23 @@ impl JobStep {
             .map(|v| (v.key.as_str(), v.value.as_str()))
             .collect();
 
-        let sys = SystemVariables {
-            step_output: input.unwrap_or(""),
+        let context_variables = ContextVariables {
             workspace_path: context.workspace_path().to_str().unwrap_or(""),
         };
 
+        let output = output_values
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+
         // Build a dataset of key/value pairs that can be used in the template
         // as variables and their substituted values.
-        let data = TemplateData { var, global, sys };
+        let data = TemplateData {
+            var,
+            global,
+            context: context_variables,
+            output,
+        };
 
         // The processor is serialized as `{ "ProcessorType": { ... } }` in the
         // database in order for Serde to know to which processor to deserialize

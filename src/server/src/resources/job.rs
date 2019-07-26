@@ -12,6 +12,7 @@ use automaat_core::Context;
 use diesel::prelude::*;
 use juniper::GraphQLEnum;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::convert::{Into, TryInto};
 use std::error::Error;
 
@@ -130,16 +131,14 @@ impl Job {
     pub(crate) fn run(&self, conn: &PgConnection) -> Result<(), Box<dyn Error>> {
         use crate::schema::jobs::dsl::*;
 
-        let data: Option<String> = None;
+        let output: HashMap<String, String> = HashMap::default();
         let context = Context::new()?;
         let mut steps = self.steps(conn)?;
 
-        let _ = steps.iter_mut().try_fold(data, |input, step| {
-            step.run(conn, &context, input.as_ref().map(String::as_str))
-        })?;
+        let _ = steps
+            .iter_mut()
+            .try_fold(output, |output, step| step.run(conn, &context, output))?;
 
-        // TODO: need to test this, I believe this will always take the status
-        // of the last step, which might not be the step that failed.
         match steps.last() {
             Some(step) => diesel::update(self)
                 .set(status.eq(Status::from(step.status)))
