@@ -28,7 +28,6 @@ pub(crate) mod graphql {
     /// Contains all the data needed to update session privileges.
     #[derive(Clone, Debug, Deserialize, Serialize, GraphQLInputObject)]
     pub(crate) struct UpdatePrivilegesInput {
-        #[serde(with = "juniper_serde")]
         pub(crate) id: ID,
         pub(crate) privileges: Vec<String>,
     }

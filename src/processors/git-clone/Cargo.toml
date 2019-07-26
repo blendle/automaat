@@ -22,7 +22,7 @@ travis-ci = { repository = "blendle/automaat" }
 
 [dependencies]
 git2 = "0.8"
-juniper = { version = "0.12", optional = true }
+juniper = { version = "0.13", optional = true }
 serde = { version = "1", features = ["derive"] }
 url = "1"
 
@@ -33,5 +33,5 @@ version = "0.1"
 path = "../../core"
 
 [dev-dependencies]
-juniper = "0.12"
+juniper = "0.13"
 version-sync = "0.8"

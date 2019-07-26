@@ -42,8 +42,7 @@ diesel = { version = "1.4", default-features = false, features = [
 diesel-derive-enum = { version = "0.4", features = ["postgres"] }
 diesel_migrations = "1.4"
 futures = "0.1"
-juniper = { version = "0.12", features = ["chrono"] }
-juniper_serde = "0.1"
+juniper = { version = "0.13", features = ["chrono"] }
 lazy_static = "1.3"
 openssl = "0.10"
 paste = "0.1"

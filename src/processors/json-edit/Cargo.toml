@@ -23,10 +23,10 @@ travis-ci = { repository = "blendle/automaat" }
 [dependencies]
 automaat-core = { version = "0.1", path = "../../core" }
 json-query = { version = "0.3", features = ["bundled"] }
-juniper = { version = "0.12", optional = true }
+juniper = { version = "0.13", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0"
 
 [dev-dependencies]
-juniper = "0.12"
+juniper = "0.13"
 version-sync = "0.8"

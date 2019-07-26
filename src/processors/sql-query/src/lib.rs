@@ -40,19 +40,20 @@
 //! #     let _tnx = client.0.simple_query(format!("{}{}{}", q1, q2, q3).as_str()).unwrap();
 //! #
 //! use automaat_core::{Context, Processor};
-//! use automaat_processor_sql_query::SqlQuery;
+//! use automaat_processor_sql_query::{SqlQuery, Type};
 //! use url::Url;
 //! use serde_json::{from_str, json, Value};
 //!
 //! let context = Context::new()?;
 //!
 //! let processor = SqlQuery {
-//!     statement: "SELECT id, name FROM users LIMIT 2".to_owned(),
+//!     statement: "SELECT id, name FROM users WHERE name = $1 OR id = $2".to_owned(),
+//!     parameters: vec![Type::text("Bart"), Type::int(2)],
 //!     url: "postgres://postgres@127.0.0.1".to_owned(),
 //! };
 //!
 //! let output = processor.run(&context)?.expect("Some");
-//! let expect = json!([{ "id" :1, "name": "Bart" }, { "id": 2, "name": "Lisa" }]);
+//! let expect = json!([{ "id": 1, "name": "Bart" }, { "id": 2, "name": "Lisa" }]);
 //!
 //! assert_eq!(from_str::<Value>(&output)?, expect);
 //! #
@@ -91,12 +92,16 @@
 #![allow(clippy::multiple_crate_versions, missing_doc_code_examples)]
 #![doc(html_root_url = "https://docs.rs/automaat-processor-sql-query/0.1.0")]
 
+pub mod types;
+pub use types::Type;
+
 use automaat_core::{Context, Processor};
+use postgres::types::ToSql;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use sqlparser::dialect::GenericSqlDialect;
-use sqlparser::sqlast::SQLStatement;
-use sqlparser::sqlparser::{Parser, ParserError};
+use sqlparser::ast::Statement;
+use sqlparser::dialect::{Dialect, GenericDialect};
+use sqlparser::parser::{Parser, ParserError};
 use std::collections::HashMap;
 use std::{error, fmt, str::FromStr};
 use url::Url;
@@ -112,6 +117,26 @@ pub struct SqlQuery {
     ///
     /// Use URLs such as `postgres://postgres:mypassword@127.0.0.1/my_database`
     pub url: String,
+
+    /// An optional set of parameters to safely inject into the query.
+    ///
+    /// Parameters are specified in the statement by $n, where n is the index of
+    /// the parameter of the list provided, 1-indexed.
+    ///
+    /// So a statement `SELECT name FROM table WHERE id = $1 AND address = $2`
+    /// can be executed with the parameters:
+    ///
+    /// `[Type::int(2), Type::text("home")].`
+    ///
+    /// Because of the inability to return union scalar values in GraphQL, the
+    /// response type of parameters is a bit awkward. It returns a `Type` object
+    /// with all possible parameter types as their own optional fields.
+    ///
+    /// The server will guarantee that **exactly one** of those fields will have
+    /// it value set, representing the type and value of the parameter.
+    ///
+    /// Currently, only `text`, `int` and `bool` parameter types are supported.
+    pub parameters: Vec<Type>,
 }
 
 /// The GraphQL [Input Object][io] used to initialize the processor via an API.
@@ -129,13 +154,24 @@ pub struct Input {
     statement: String,
 
     url: String,
+
+    parameters: Option<Vec<types::TypeInput>>,
 }
 
 #[cfg(feature = "juniper")]
 impl From<Input> for SqlQuery {
     fn from(input: Input) -> Self {
+        let parameters = input
+            .parameters
+            .unwrap_or_default()
+            .into_iter()
+            .map(std::convert::TryInto::try_into)
+            .collect::<Result<Vec<_>, ()>>()
+            .unwrap_or_default();
+
         Self {
             statement: input.statement,
+            parameters,
             url: input.url,
         }
     }
@@ -170,9 +206,14 @@ impl SqlQuery {
         // Validate URL syntax.
         let url = self.url()?;
 
+        // Set the SQL syntax dialect.
+        let dialect: &dyn Dialect = match url.scheme() {
+            "postgres" => &PostgreSqlDialect {},
+            _ => &GenericDialect {},
+        };
+
         // Validate SQL syntax.
-        let ast = Parser::parse_sql(&GenericSqlDialect {}, self.statement.to_owned())
-            .map_err(Error::from)?;
+        let ast = Parser::parse_sql(dialect, self.statement.to_owned()).map_err(Error::from)?;
 
         // Only one statement per query is supported.
         if ast.len() != 1 {
@@ -181,7 +222,7 @@ impl SqlQuery {
 
         // Only the SELECT statement is supported.
         match ast[0] {
-            SQLStatement::SQLSelect(_) => (),
+            Statement::Query(_) => (),
             _ => return Err(Error::StatementType),
         };
 
@@ -191,13 +232,13 @@ impl SqlQuery {
         }
     }
 
-    fn run_postgres_statement(&self) -> Result<Option<String>, Error> {
+    fn run_postgres_statement(&self, parameters: &[&dyn ToSql]) -> Result<Option<String>, Error> {
         use postgres::{types::Type as T, Client, NoTls};
         use serde_json::{to_string, to_value};
 
         let mut conn = Client::connect(self.url.as_str(), NoTls).map_err(Error::from)?;
         let rows = conn
-            .query(self.statement.as_str(), &[])
+            .query(self.statement.as_str(), parameters)
             .map_err(Error::from)?;
 
         let mut results = vec![];
@@ -279,8 +320,28 @@ impl<'a> Processor<'a> for SqlQuery {
     fn run(&self, _context: &Context) -> Result<Option<Self::Output>, Self::Error> {
         self.validate()?;
 
+        let mut parameters: Vec<&dyn ToSql> = vec![];
+        for ty in &self.parameters {
+            if let Some(v) = ty.as_text() {
+                parameters.push(v);
+                continue;
+            }
+
+            if let Some(v) = ty.as_int() {
+                parameters.push(v);
+                continue;
+            }
+
+            if let Some(v) = ty.as_bool() {
+                parameters.push(v);
+                continue;
+            }
+
+            return Err(Error::ParameterType);
+        }
+
         match self.url()?.scheme() {
-            "postgres" => self.run_postgres_statement(),
+            "postgres" => self.run_postgres_statement(&parameters),
             "sqlite" => self.run_sqlite_statement(),
             "mysql" => self.run_mysql_statement(),
             _ => unimplemented!(),
@@ -297,6 +358,9 @@ pub enum Error {
     /// Multiple SQL statements were found (separated by `;`). This is
     /// unsupported.
     MultipleStatements,
+
+    /// A provided parameter SQL type is invalid.
+    ParameterType,
 
     /// Postgres returned an error.
     Postgres(postgres::Error),
@@ -336,6 +400,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {
             Error::MultipleStatements => write!(f, "Multiple SQL statements found"),
+            Error::ParameterType => write!(f, "Invalid parameter type provided"),
             Error::Postgres(ref err) => write!(f, "Postgres error: {}", err),
             Error::ReturnType(ref string) => write!(f, "Unsupported return type: {}", string),
             Error::Scheme(ref string) => write!(f, "Unsupported URL scheme: {}", string),
@@ -352,6 +417,7 @@ impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match *self {
             Error::MultipleStatements
+            | Error::ParameterType
             | Error::ReturnType(_)
             | Error::Scheme(_)
             | Error::StatementType
@@ -392,6 +458,26 @@ impl From<postgres::Error> for Error {
     }
 }
 
+/// This is a copy/paste of this code: <http://git.io/fjDhS>
+///
+/// It adds a `ch == '$'` check, to allow numbered arguments.
+#[derive(Copy, Clone, Debug)]
+pub struct PostgreSqlDialect {}
+
+impl Dialect for PostgreSqlDialect {
+    fn is_identifier_start(&self, ch: char) -> bool {
+        (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_' || ch == '$'
+    }
+
+    fn is_identifier_part(&self, ch: char) -> bool {
+        (ch >= 'a' && ch <= 'z')
+            || (ch >= 'A' && ch <= 'Z')
+            || (ch >= '0' && ch <= '9')
+            || ch == '$'
+            || ch == '_'
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -415,6 +501,7 @@ mod tests {
         SqlQuery {
             statement: "SELECT * FROM table".to_owned(),
             url: "postgres://postgres@127.0.0.1".to_owned(),
+            parameters: vec![],
         }
     }
 
@@ -526,6 +613,33 @@ mod tests {
                 json!([{ "col": [1, 2, { "1": true }] }]).to_string(),
                 output
             );
+        }
+
+        #[test]
+        fn test_parameters() {
+            let pg = prepare_pg_data("(col TEXT)", "(col) VALUES ('hello'), ('world')");
+
+            let mut processor = processor_stub();
+            processor.statement = format!("SELECT * FROM {} WHERE col = $1", pg.table);
+            processor.parameters = vec![Type::text("world")];
+
+            let context = Context::new().unwrap();
+            let output = processor.run(&context).unwrap().expect("Some");
+
+            assert_eq!(json!([{ "col": "world" }]).to_string(), output);
+        }
+
+        #[test]
+        #[should_panic]
+        fn test_invalid_parameter() {
+            let pg = prepare_pg_data("(col TEXT)", "(col) VALUES ('hello'), ('world')");
+
+            let mut processor = processor_stub();
+            processor.statement = format!("SELECT * FROM {} WHERE col = $1", pg.table);
+            processor.parameters = vec![Type::default()];
+
+            let context = Context::new().unwrap();
+            let _ = processor.run(&context).unwrap().expect("Some");
         }
 
         #[test]

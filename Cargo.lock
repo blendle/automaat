@@ -295,7 +295,7 @@ version = "0.1.0"
 dependencies = [
  "automaat-core 0.1.0",
  "git2 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "juniper 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "juniper 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.92 (registry+https://github.com/rust-lang/crates.io-index)",
  "url 1.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "version-sync 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -306,7 +306,7 @@ name = "automaat-processor-http-request"
 version = "0.1.0"
 dependencies = [
  "automaat-core 0.1.0",
- "juniper 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "juniper 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest 0.9.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.92 (registry+https://github.com/rust-lang/crates.io-index)",
  "url 1.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -319,7 +319,7 @@ version = "0.1.0"
 dependencies = [
  "automaat-core 0.1.0",
  "json-query 0.3.0 (git+https://github.com/JeanMertz/json-query?branch=newline)",
- "juniper 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "juniper 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.92 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
  "version-sync 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -330,7 +330,7 @@ name = "automaat-processor-print-output"
 version = "0.1.0"
 dependencies = [
  "automaat-core 0.1.0",
- "juniper 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "juniper 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.92 (registry+https://github.com/rust-lang/crates.io-index)",
  "version-sync 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -340,7 +340,7 @@ name = "automaat-processor-redis-command"
 version = "0.1.0"
 dependencies = [
  "automaat-core 0.1.0",
- "juniper 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "juniper 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "redis 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.92 (registry+https://github.com/rust-lang/crates.io-index)",
  "url 1.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -352,7 +352,7 @@ name = "automaat-processor-shell-command"
 version = "0.1.0"
 dependencies = [
  "automaat-core 0.1.0",
- "juniper 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "juniper 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.92 (registry+https://github.com/rust-lang/crates.io-index)",
  "strip-ansi-escapes 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "version-sync 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -363,12 +363,13 @@ name = "automaat-processor-sql-query"
 version = "0.1.0"
 dependencies = [
  "automaat-core 0.1.0",
- "juniper 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "juniper 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "paste 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "postgres 0.16.0-rc.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.92 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
- "sqlparser 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sqlparser 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "url 1.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "version-sync 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -378,7 +379,7 @@ name = "automaat-processor-string-regex"
 version = "0.1.0"
 dependencies = [
  "automaat-core 0.1.0",
- "juniper 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "juniper 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 1.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.92 (registry+https://github.com/rust-lang/crates.io-index)",
  "version-sync 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -406,8 +407,7 @@ dependencies = [
  "diesel-derive-enum 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "diesel_migrations 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
- "juniper 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "juniper_serde 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "juniper 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl 0.10.23 (registry+https://github.com/rust-lang/crates.io-index)",
  "paste 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1321,13 +1321,13 @@ dependencies = [
 
 [[package]]
 name = "juniper"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "chrono 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "indexmap 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "juniper_codegen 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "juniper_codegen 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.92 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.92 (registry+https://github.com/rust-lang/crates.io-index)",
  "url 1.7.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1336,7 +1336,7 @@ dependencies = [
 
 [[package]]
 name = "juniper_codegen"
-version = "0.12.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1344,15 +1344,6 @@ dependencies = [
  "quote 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 1.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "syn 0.15.36 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "juniper_serde"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "juniper 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde 1.0.92 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1694,6 +1685,14 @@ dependencies = [
  "libc 0.2.58 (registry+https://github.com/rust-lang/crates.io-index)",
  "pkg-config 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "vcpkg 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "ordered-float"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "num-traits 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -2395,12 +2394,11 @@ dependencies = [
 
 [[package]]
 name = "sqlparser"
-version = "0.3.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "chrono 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "uuid 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ordered-float 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -3266,9 +3264,8 @@ dependencies = [
 "checksum jq-src 0.4.0 (git+https://github.com/onelson/jq-src)" = "<none>"
 "checksum jq-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "81b65b7e54bd2fffc8cb20cbcf19f40d3158dab5cf5b5adb1f65f9b35eba4c48"
 "checksum json-query 0.3.0 (git+https://github.com/JeanMertz/json-query?branch=newline)" = "<none>"
-"checksum juniper 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3365cb2712ac210a62fdb31e608e43da1a60d9c72affd49f064f4e744ad1a26b"
-"checksum juniper_codegen 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1f58987aefa7edd8033a558e9019347ad4f016b97caa58290abf2728ce773859"
-"checksum juniper_serde 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e7e9ce729204903e3b083be7a96694d5d8cad1f04188052c406e73586d86878b"
+"checksum juniper 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)" = "aa942ca32bedb69c660c77bc08addd9a38bc7b12c98f8b9d07a9d858751dc372"
+"checksum juniper_codegen 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)" = "db7c2cc4f1a3261aca29dddf38fefb9703a22c66d8a55a63ebcc6175d7f90bc6"
 "checksum kernel32-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7507624b29483431c0ba2d82aece8ca6cdba9382bff4ddd0f7490560c056098d"
 "checksum language-tags 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "a91d884b6667cd606bb5a69aa0c99ba811a115fc68915e7056ec08a46e93199a"
 "checksum lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "bc5729f27f159ddd61f4df6228e827e86643d4d3e7c32183cb30a1c08f604a14"
@@ -3308,6 +3305,7 @@ dependencies = [
 "checksum openssl 0.10.23 (registry+https://github.com/rust-lang/crates.io-index)" = "97c140cbb82f3b3468193dd14c1b88def39f341f68257f8a7fe8ed9ed3f628a5"
 "checksum openssl-probe 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "77af24da69f9d9341038eba93a073b1fdaaa1b788221b00a69bce9e762cb32de"
 "checksum openssl-sys 0.9.47 (registry+https://github.com/rust-lang/crates.io-index)" = "75bdd6dbbb4958d38e47a1d2348847ad1eb4dc205dc5d37473ae504391865acc"
+"checksum ordered-float 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "18869315e81473c951eb56ad5558bbc56978562d3ecfb87abb7a1e944cea4518"
 "checksum ordermap 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)" = "a86ed3f5f244b372d6b1a00b72ef7f8876d0bc6a78a4c9985c53614041512063"
 "checksum owning_ref 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "49a4b8ea2179e6a2e27411d3bca09ca6dd630821cf6894c6c7c8467a8ee7ef13"
 "checksum parking_lot 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ab41b4aed082705d1056416ae4468b6ea99d52599ecf3169b00088d43113e337"
@@ -3385,7 +3383,7 @@ dependencies = [
 "checksum slug 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "b3bc762e6a4b6c6fcaade73e77f9ebc6991b676f88bb2358bddb56560f073373"
 "checksum smallvec 0.6.10 (registry+https://github.com/rust-lang/crates.io-index)" = "ab606a9c5e214920bb66c458cd7be8ef094f813f20fe77a54cc7dbfff220d4b7"
 "checksum socket2 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)" = "4e626972d3593207547f14bf5fc9efa4d0e7283deb73fef1dff313dae9ab8878"
-"checksum sqlparser 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "188bfc5f01657a744d65d0eea04bd700a11210685d579b4967ebb6045c59725c"
+"checksum sqlparser 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f6121002299d17aebc1962c731e0a85496d9708e992c178a86ee33f4b533eb7c"
 "checksum stable_deref_trait 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "dba1a27d3efae4351c8051072d619e3ade2820635c3958d826bfea39d59b54c8"
 "checksum state_machine_future 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "530e1d624baae485bce12e6647acb76aafa253346ee8a16751974eed5a24b13d"
 "checksum string 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d0bbfb8937e38e34c3444ff00afb28b0811d9554f15c5ad64d12b0308d1d1995"

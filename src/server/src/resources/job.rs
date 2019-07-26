@@ -325,7 +325,6 @@ pub(crate) mod graphql {
     #[derive(Clone, Debug, Deserialize, Serialize, GraphQLInputObject)]
     pub(crate) struct CreateJobFromTaskInput {
         /// The `id` of the task from which to create this job.
-        #[serde(with = "juniper_serde")]
         pub(crate) task_id: ID,
 
         /// An optional list of variable values required by the task.

@@ -240,11 +240,25 @@ input ShellCommandInput {
 type SqlQuery {
   statement: String!
   url: String!
+  parameters: [SqlType!]!
 }
 
 input SqlQueryInput {
   statement: String!
   url: String!
+  parameters: [SqlTypeInput!]
+}
+
+type SqlType {
+  text: String
+  int: Int
+  bool: Boolean
+}
+
+input SqlTypeInput {
+  text: String
+  int: Int
+  bool: Boolean
 }
 
 type Step {
