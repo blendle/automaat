@@ -1,0 +1,2 @@
+-- We can't know if the fuzzystrmatch extension already existed,
+-- so we'll leave it installed when reverting this migration.

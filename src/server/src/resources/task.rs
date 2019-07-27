@@ -16,12 +16,31 @@
 //! [`variable`]: crate::resources::variable
 
 use crate::resources::{NewStep, NewVariable, Step, Variable};
-use crate::schema::tasks;
+use crate::schema::{jobs, tasks};
 use crate::server::RequestState;
+use diesel::dsl::sql;
 use diesel::prelude::*;
+use diesel::sql_types::{BigInt, Integer, NotNull, Nullable, Text};
 use serde::{Deserialize, Serialize};
 use std::convert::{TryFrom, TryInto};
 use std::error;
+
+sql_function!(fn levenshtein(source: Text, target: Text, ins: Integer, del: Integer, sub: Integer) -> Integer);
+sql_function!(fn coalesce<T: NotNull>(value: Nullable<T>, replace: T) -> T);
+sql_function!(fn lower(value: Text) -> Text);
+
+/// This is a throw-away struct to fetch the right search query details from the
+/// database using Diesel. We aren't interested in the task reference or count
+/// results, but have to define them for type safety.
+#[derive(Queryable)]
+struct SearchData {
+    task: Task,
+
+    #[allow(dead_code)]
+    task_reference: Option<i32>,
+    #[allow(dead_code)]
+    count: i64,
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize, Identifiable, Queryable)]
 #[table_name = "tasks"]
@@ -60,6 +79,53 @@ impl Task {
             .filter(vkey.eq(key))
             .first(conn)
             .optional()
+    }
+
+    pub(crate) fn search(
+        name_query: Option<&str>,
+        description_query: Option<&str>,
+        conn: &PgConnection,
+    ) -> QueryResult<Vec<Self>> {
+        // start a query on the "tasks" table...
+        let mut query = tasks::table.into_boxed();
+
+        // ... if a name query filter is provided, apply levenshtein distance
+        // filter on the lowercased name field and order accordingly...
+        if let Some(name) = &name_query {
+            let filter = levenshtein(lower(tasks::name), lower(name), 50, 1, 20);
+            query = query.filter(filter.le(100)).order_by(filter.asc())
+        };
+
+        // ... if a description query filter is provided, add an `ilike` filter
+        // on the lowercased description field instead of a levenshtein filter,
+        // because it produces more accurate results for larger bodies of text.
+        //
+        // We still use the levenshtein distance calculation for secondary
+        // ordering...
+        if let Some(description) = &description_query {
+            let default = coalesce(tasks::description, "");
+            let filter = default.ilike(format!("%{}%", description));
+            let sort = levenshtein(lower(default), lower(description), 200, 2, 40);
+            query = query.or_filter(filter).then_order_by(sort.asc());
+        };
+
+        // ... count the number of times a job has run for each task, and
+        // finally sort by that number. If no name or description filters were
+        // applied, this sorting will dictate the final order, if one or both
+        // filters are applied, this sorting is ranked third in the sorting
+        // preferences.
+        let results: Vec<SearchData> = query
+            .inner_join(jobs::table.on(jobs::task_reference.eq(tasks::id.nullable())))
+            .select((
+                tasks::all_columns,
+                jobs::task_reference,
+                sql::<BigInt>("count(*) AS count"),
+            ))
+            .group_by((tasks::id, jobs::task_reference))
+            .then_order_by(sql::<BigInt>("jobs.count").desc())
+            .get_results(conn)?;
+
+        Ok(results.into_iter().map(|d| d.task).collect())
     }
 }
 

@@ -138,11 +138,7 @@ impl Tasks {
     pub(crate) fn filtered_tasks(&self) -> Vec<&Task> {
         match &self.filtered_task_ids {
             None => self.tasks.values().collect(),
-            Some(ids) => self
-                .tasks
-                .values()
-                .filter(|t| ids.contains(&t.id()))
-                .collect(),
+            Some(ids) => ids.iter().filter_map(|id| self.get(id)).collect(),
         }
     }
 

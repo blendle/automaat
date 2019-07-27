@@ -30,10 +30,15 @@ impl tasks::Actions for Controller {
         use crate::graphql::search_tasks::{SearchTaskInput, Variables};
         use crate::graphql::SearchTasks;
 
+        let query = match query.as_str() {
+            "" => None,
+            _ => Some(query),
+        };
+
         let variables = Variables {
             search: Some(SearchTaskInput {
-                name: Some(query.clone()),
-                description: Some(query),
+                name: query.clone(),
+                description: query,
             }),
         };
 

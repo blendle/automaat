@@ -22,20 +22,15 @@ impl QueryRoot {
     /// You can optionally filter the returned set of tasks by providing the
     /// `SearchTaskInput` value.
     fn tasks(context: &RequestState, search: Option<SearchTaskInput>) -> FieldResult<Vec<Task>> {
-        let mut query = tasks::table.order(tasks::id).into_boxed();
+        let name = search
+            .as_ref()
+            .and_then(|s| s.name.as_ref().map(String::as_str));
 
-        if let Some(search) = &search {
-            if let Some(search_name) = &search.name {
-                query = query.filter(tasks::name.ilike(format!("%{}%", search_name)));
-            };
+        let description = search
+            .as_ref()
+            .and_then(|s| s.description.as_ref().map(String::as_str));
 
-            if let Some(search_description) = &search.description {
-                query =
-                    query.or_filter(tasks::description.ilike(format!("%{}%", search_description)));
-            };
-        };
-
-        query.load(&context.conn).map_err(Into::into)
+        Task::search(name, description, &context.conn).map_err(Into::into)
     }
 
     /// Return a list of jobs.
