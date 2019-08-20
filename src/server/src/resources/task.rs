@@ -32,7 +32,7 @@ sql_function!(fn lower(value: Text) -> Text);
 /// This is a throw-away struct to fetch the right search query details from the
 /// database using Diesel. We aren't interested in the task reference or count
 /// results, but have to define them for type safety.
-#[derive(Queryable)]
+#[derive(Debug, Queryable)]
 struct SearchData {
     task: Task,
 
@@ -114,18 +114,21 @@ impl Task {
         // applied, this sorting will dictate the final order, if one or both
         // filters are applied, this sorting is ranked third in the sorting
         // preferences.
-        let results: Vec<SearchData> = query
-            .inner_join(jobs::table.on(jobs::task_reference.eq(tasks::id.nullable())))
+        let query = query
+            .left_join(jobs::table.on(jobs::task_reference.eq(tasks::id.nullable())))
             .select((
                 tasks::all_columns,
-                jobs::task_reference,
+                jobs::task_reference.nullable(),
                 sql::<BigInt>("count(*) AS count"),
             ))
             .group_by((tasks::id, jobs::task_reference))
-            .then_order_by(sql::<BigInt>("jobs.count").desc())
-            .get_results(conn)?;
+            .then_order_by(sql::<BigInt>("jobs.count").desc());
 
-        Ok(results.into_iter().map(|d| d.task).collect())
+        Ok(query
+            .get_results(conn)?
+            .into_iter()
+            .map(|d: SearchData| d.task)
+            .collect())
     }
 }
 
@@ -350,7 +353,6 @@ pub(crate) mod graphql {
             self.steps(&context.conn).map(Some).map_err(Into::into)
         }
     }
-
 }
 
 impl<'a> TryFrom<&'a graphql::CreateTaskInput> for NewTask<'a> {
