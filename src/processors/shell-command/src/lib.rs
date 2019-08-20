@@ -3,6 +3,9 @@
 //! Execute shell commands in an Automaat-based workflow. The return value of
 //! the shell command is returned as the output of the processor.
 //!
+//! An optional `stdin` value can be given to provide as the stdin string to the
+//! shell command.
+//!
 //! If the shell command returns a non-zero exit code, the processor returns the
 //! _stderr_ output as its error value.
 //!
@@ -23,15 +26,16 @@
 //! let context = Context::new()?;
 //!
 //! let processor = ShellCommand {
-//!     command: "echo".to_owned(),
-//!     arguments: Some(vec!["hello world".to_owned()]),
+//!     command: "grep".to_owned(),
+//!     arguments: Some(vec!["hello".to_owned()]),
+//!     stdin: Some("hello\nworld".to_owned()),
 //!     cwd: None,
 //!     paths: None,
 //! };
 //!
 //! let output = processor.run(&context)?;
 //!
-//! assert_eq!(output, Some("hello world".to_owned()));
+//! assert_eq!(output, Some("hello".to_owned()));
 //! #     Ok(())
 //! # }
 //! ```
@@ -69,7 +73,9 @@
 
 use automaat_core::{Context, Processor};
 use serde::{Deserialize, Serialize};
-use std::{env, error, fmt, io, path, process};
+use std::io::Write;
+use std::process::{Command, Stdio};
+use std::{env, error, fmt, io, path};
 
 /// The processor configuration.
 #[cfg_attr(feature = "juniper", derive(juniper::GraphQLObject))]
@@ -80,6 +86,9 @@ pub struct ShellCommand {
 
     /// The arguments added to the `main` command.
     pub arguments: Option<Vec<String>>,
+
+    /// An optional string passed into to command as _stdin_.
+    pub stdin: Option<String>,
 
     /// The _current working directory_ in which the command is executed.
     ///
@@ -114,6 +123,7 @@ pub struct ShellCommand {
 pub struct Input {
     command: String,
     arguments: Option<Vec<String>>,
+    stdin: Option<String>,
     cwd: Option<String>,
     paths: Option<Vec<String>>,
 }
@@ -124,6 +134,7 @@ impl From<Input> for ShellCommand {
         Self {
             command: input.command,
             arguments: input.arguments,
+            stdin: input.stdin,
             cwd: input.cwd,
             paths: input.paths,
         }
@@ -223,11 +234,24 @@ impl<'a> Processor<'a> for ShellCommand {
             None => new_paths,
         };
 
-        let output = process::Command::new(&self.command)
+        let mut command = Command::new(&self.command);
+        let command = command
             .current_dir(cwd)
             .env("PATH", env::join_paths(path)?)
-            .args(arguments)
-            .output()?;
+            .args(arguments);
+
+        let output = if let Some(input) = &self.stdin {
+            let mut spawn = command
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()?;
+
+            spawn.stdin.as_mut().unwrap().write_all(input.as_bytes())?;
+            spawn.wait_with_output()
+        } else {
+            command.output()
+        }?;
 
         if !output.status.success() {
             if output.stderr.is_empty() {
@@ -322,6 +346,7 @@ mod tests {
         ShellCommand {
             command: "echo".to_owned(),
             arguments: None,
+            stdin: None,
             cwd: None,
             paths: None,
         }
@@ -349,9 +374,19 @@ mod tests {
             let context = Context::new().unwrap();
             let output = processor.run(&context).unwrap().expect("Some");
 
-            dbg!(&output);
-
             assert!(output.contains("PID"))
+        }
+
+        #[test]
+        fn test_command_with_input() {
+            let mut processor = processor_stub();
+            processor.command = "cat".to_owned();
+            processor.stdin = Some("hello world".to_owned());
+
+            let context = Context::new().unwrap();
+            let output = processor.run(&context).unwrap().expect("Some");
+
+            assert!(output.contains("hello world"))
         }
 
         #[test]
