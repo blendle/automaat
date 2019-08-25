@@ -64,7 +64,7 @@ impl Task {
     pub(crate) fn variables(&self, conn: &PgConnection) -> QueryResult<Vec<Variable>> {
         use crate::schema::variables::dsl::*;
 
-        Variable::belonging_to(self).order(id.desc()).load(conn)
+        Variable::belonging_to(self).order(id.asc()).load(conn)
     }
 
     /// Return the task variable matching the given key, if any.
