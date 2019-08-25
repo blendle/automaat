@@ -252,7 +252,7 @@ pub(crate) mod graphql {
         /// Without variables, a task can only be used for one single
         /// purpose. While this might sometimes be desirable, using variables
         /// provides more flexibility for the user that triggers the task.
-        pub(crate) variables: Vec<CreateVariableInput>,
+        pub(crate) variables: Option<Vec<CreateVariableInput>>,
 
         /// A list of steps attached to the task.
         ///
@@ -377,11 +377,13 @@ impl<'a> TryFrom<&'a graphql::CreateTaskInput> for NewTask<'a> {
             labels,
         );
 
-        let variables = input
-            .variables
-            .iter()
-            .map(TryInto::try_into)
-            .collect::<Result<Vec<_>, String>>()?;
+        let variables = match &input.variables {
+            None => vec![],
+            Some(variables) => variables
+                .iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<_>, String>>()?,
+        };
 
         let steps = input
             .steps

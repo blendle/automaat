@@ -23,7 +23,7 @@ input CreateTaskInput {
   name: String!
   description: String
   labels: [String!]
-  variables: [CreateVariableInput!]!
+  variables: [CreateVariableInput!]
   steps: [CreateStepInput!]!
 }
 
