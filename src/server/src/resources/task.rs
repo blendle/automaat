@@ -28,6 +28,7 @@ use std::error;
 sql_function!(fn levenshtein(source: Text, target: Text, ins: Integer, del: Integer, sub: Integer) -> Integer);
 sql_function!(fn coalesce<T: NotNull>(value: Nullable<T>, replace: T) -> T);
 sql_function!(fn lower(value: Text) -> Text);
+sql_function!(fn left(source: Text, length: Integer) -> Text);
 
 /// This is a throw-away struct to fetch the right search query details from the
 /// database using Diesel. We aren't interested in the task reference or count
@@ -92,7 +93,9 @@ impl Task {
         // ... if a name query filter is provided, apply levenshtein distance
         // filter on the lowercased name field and order accordingly...
         if let Some(name) = &name_query {
-            let filter = levenshtein(lower(tasks::name), lower(name), 50, 1, 20);
+            let source = lower(left(tasks::name, 255));
+            let target = lower(left(name, 255));
+            let filter = levenshtein(source, target, 50, 1, 20);
             query = query.filter(filter.le(100)).order_by(filter.asc())
         };
 
@@ -103,9 +106,10 @@ impl Task {
         // We still use the levenshtein distance calculation for secondary
         // ordering...
         if let Some(description) = &description_query {
-            let default = coalesce(tasks::description, "");
-            let filter = default.ilike(format!("%{}%", description));
-            let sort = levenshtein(lower(default), lower(description), 200, 2, 40);
+            let source = lower(left(coalesce(tasks::description, ""), 255));
+            let target = lower(left(description, 255));
+            let filter = coalesce(description, "").ilike(format!("%{}%", description));
+            let sort = levenshtein(source, target, 200, 2, 40);
             query = query.or_filter(filter).then_order_by(sort.asc());
         };
 
