@@ -4,9 +4,11 @@ use crate::model::job::{
     Job,
     Status::{Failed, Succeeded},
 };
+use crate::utils;
 use dodrio::bumpalo::collections::string::String as BString;
 use dodrio::{Node, Render, RenderContext};
 use std::marker::PhantomData;
+use wasm_bindgen::UnwrapThrowExt;
 
 /// The `JobResult` component.
 pub(crate) struct JobResult<'a, C> {
@@ -31,6 +33,9 @@ impl<'a, C> JobResult<'a, C> {
 trait Views<'b> {
     /// The header of the job result.
     fn header(&self, cx: &mut RenderContext<'b>) -> Node<'b>;
+
+    /// An optional "copy result" button.
+    fn btn_copy(&self, cx: &mut RenderContext<'b>) -> Node<'b>;
 
     /// The job result output content.
     fn body(&self, cx: &mut RenderContext<'b>) -> Node<'b>;
@@ -58,8 +63,35 @@ impl<'a, 'b, C> Views<'b> for JobResult<'a, C> {
             .child(div(&cx).child(text(title)).finish())
             .finish();
 
-        header(&cx)
-            .child(div(&cx).children([title]).finish())
+        let actions = div(&cx)
+            .attr("class", "actions")
+            .children([self.btn_copy(cx)])
+            .finish();
+
+        header(&cx).children([title, actions]).finish()
+    }
+
+    fn btn_copy(&self, cx: &mut RenderContext<'b>) -> Node<'b> {
+        use dodrio::builder::*;
+
+        let output = match &self.job.status {
+            Succeeded(output) | Failed(output) if output.text.is_some() => {
+                output.text.as_ref().unwrap_throw().clone()
+            }
+            _ => return div(&cx).finish(),
+        };
+
+        button(&cx)
+            .attr("class", "copy")
+            .children([
+                span(&cx).child(i(&cx).finish()).finish(),
+                span(&cx).child(text("copy")).finish(),
+            ])
+            .on("click", move |_root, _vdom, event| {
+                utils::copy_to_clipboard(&output);
+
+                event.prevent_default();
+            })
             .finish()
     }
 

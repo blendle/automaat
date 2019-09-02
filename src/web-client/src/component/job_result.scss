@@ -8,15 +8,28 @@
 
   header {
     @extend .message-header;
+    @extend .level;
 
-    > div {
-      @extend .level;
+    // TODO: figure out a way to not mark this as important
+    margin-bottom: 0 !important;
 
-      > .status { @extend .level-left; }
-      > .actions { @extend .level-right; }
+    > .status { @extend .level-left; }
+    > .actions { @extend .level-right; }
 
-      > .status,
-      > .actions { > div { @extend .level-item; } }
+    > .status,
+    > .actions {
+        > div { @extend .level-item; }
+
+        .copy {
+            @extend .button;
+            @extend .is-small;
+            @extend .is-primary;
+            @extend .is-inverted;
+            @extend .is-outlined;
+
+            @extend %button-with-icon-first;
+            i::before { content: "\f0c5"; } // copy
+        }
     }
   }
 

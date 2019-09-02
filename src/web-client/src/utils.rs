@@ -136,3 +136,23 @@ where
         .unwrap_throw()
         .and_then(|e| e.dyn_into::<T>().ok())
 }
+
+/// Copy the passed in string to the clipboard.
+///
+/// To make this work across different browsers, this function has to create a
+/// temporary text field and copy the data from that HTML element, before
+/// removing it again.
+pub(crate) fn copy_to_clipboard(value: &str) {
+    let document = document().unchecked_into::<web_sys::HtmlDocument>();
+    let body = document.body().unwrap_throw();
+    let element = document
+        .create_element("textarea")
+        .unwrap_throw()
+        .unchecked_into::<web_sys::HtmlTextAreaElement>();
+
+    body.append_with_node_1(&element).unwrap_throw();
+    element.set_text_content(Some(value));
+    element.select();
+    let _ = document.exec_command("copy").unwrap_throw();
+    let _ = body.remove_child(&element).unwrap_throw();
+}
