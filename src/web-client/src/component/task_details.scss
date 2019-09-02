@@ -4,114 +4,97 @@
   @extend .modal;
   @extend .is-active;
 
-  header {
-    @extend .modal-card-head;
-    @extend .has-text-centered;
-
-    background: #475698;
-    background: linear-gradient(135deg, #475698 0%, #1f2d6e 100%);
-
-    p {
-      @extend .modal-card-title;
-      @extend .has-text-white;
-      @extend .has-text-weight-semibold;
-    }
-  }
-
-  section {
-    @extend .modal-card-body;
-    @extend .has-background-white-ter;
-
-    overflow: scroll;
-    padding-bottom: 0;
-
-    p { @extend .content; }
-    > div { @extend .container; }
-
-    // make sure the bottom padding remains with overflow:scroll
-    &::after {
-      content: "";
-      display: block;
-      height: 20px;
-      width: 100%;
-    }
-  }
-
-  > div:first-child { @extend .modal-background; }
-
-  .last-result {
-    @extend .is-centered;
-    @extend .has-text-centered;
-    @extend .is-size-7;
-    @extend .has-text-grey;
-
-    margin-top: 3rem;
-    margin-bottom: -0.75rem;
-    white-space: pre-wrap;
-  }
-
-  .job-response {
-    padding-top: 1.5rem;
-
-    article {
-      @extend .message;
-
-      .message-staging { display: none; }
-
-      .message-body {
-        @extend .content;
-
-        // visual changes to make the output a bit more compacted
-        li { margin-top: 0; }
-      }
-    }
-  }
-
   form {
     @extend .modal-card;
 
     overflow: visible;
+
+    > header {
+      @extend .modal-card-head;
+      @extend .has-text-centered;
+
+      background: #475698;
+      background: linear-gradient(135deg, #475698 0%, #1f2d6e 100%);
+
+      p {
+        @extend .modal-card-title;
+        @extend .has-text-white;
+        @extend .has-text-weight-semibold;
+      }
+    }
+
+    > section {
+      @extend .modal-card-body;
+      @extend .has-background-white-ter;
+
+      overflow: scroll;
+      padding-bottom: 0;
+
+      p { @extend .content; }
+      > div { @extend .container; }
+
+      // make sure the bottom padding remains with overflow:scroll
+      &::after {
+        content: "";
+        display: block;
+        height: 20px;
+        width: 100%;
+      }
+    }
+
+    .last-result {
+      @extend .is-centered;
+      @extend .has-text-centered;
+      @extend .is-size-7;
+      @extend .has-text-grey;
+
+      margin-top: 3rem;
+      margin-bottom: -0.75rem;
+      white-space: pre-wrap;
+    }
+
+    > footer {
+      @extend .modal-card-foot;
+
+      .back {
+        @extend %button-with-icon-first;
+        i::before { content: "\f137"; } // chevron-circle-left
+      }
+
+      button.ok,
+      button.unauthenticated,
+      button.unauthorized {
+        @extend .is-fullwidth;
+        @extend %button-with-icon-last;
+      }
+
+      input.login {
+        @extend .input;
+        @extend .is-medium;
+      }
+
+      button {
+        @extend .is-medium;
+
+        &.ok {
+          @extend .is-info;
+          i::before { content: "\f00c"; } // check
+        }
+
+        &.unauthenticated {
+          @extend .is-warning;
+          @extend .has-text-light;
+          i::before { content: "\f577"; } // fingerprint
+        }
+
+        &.unauthorized {
+          @extend .is-danger;
+          @extend .has-text-white-ter;
+          i::before { content: "\f023"; } // lock
+        }
+      }
+    }
   }
 
-  footer {
-    @extend .modal-card-foot;
-
-    .back {
-      @extend %button-with-icon-first;
-      i::before { content: "\f137"; } // chevron-circle-left
-    }
-
-    button.ok,
-    button.unauthenticated,
-    button.unauthorized {
-      @extend .is-fullwidth;
-      @extend %button-with-icon-last;
-    }
-
-    input.login {
-      @extend .input;
-      @extend .is-medium;
-    }
-
-    button {
-      @extend .is-medium;
-
-      &.ok {
-        @extend .is-info;
-        i::before { content: "\f00c"; } // check
-      }
-
-      &.unauthenticated {
-        @extend .is-warning;
-        @extend .has-text-light;
-        i::before { content: "\f577"; } // fingerprint
-      }
-
-      &.unauthorized {
-        @extend .is-danger;
-        @extend .has-text-white-ter;
-        i::before { content: "\f023"; } // lock
-      }
-    }
-  }
+  > div:first-child { @extend .modal-background; }
 }

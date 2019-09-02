@@ -1,6 +1,7 @@
 //! A `Job` is an instance of a `Task` that is either scheduled to run, is
 //! actively running on the server, or ran in the past.
 
+use crate::graphql::fetch_job_result::FetchJobResultJobStepsOutput;
 use crate::model::{task, tasks};
 use crate::service::GraphqlService;
 use dodrio::{RootRender, VdomWeak};
@@ -50,6 +51,63 @@ impl Job {
     }
 }
 
+/// The job output, containing both the html and text (markdown) output.
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub(crate) struct Output {
+    /// HTML formatted output.
+    pub(crate) html: Option<String>,
+
+    /// Text formatted output.
+    pub(crate) text: Option<String>,
+}
+
+impl Output {
+    /// Create html-only output.
+    #[allow(unused)]
+    pub(crate) fn html<T>(string: T) -> Self
+    where
+        T: Into<String>,
+    {
+        Self {
+            html: Some(string.into()),
+            text: None,
+        }
+    }
+
+    /// Create text-only output.
+    #[allow(unused)]
+    pub(crate) fn text<T>(string: T) -> Self
+    where
+        T: Into<String>,
+    {
+        Self {
+            html: None,
+            text: Some(string.into()),
+        }
+    }
+}
+
+impl<T> From<Option<T>> for Output
+where
+    T: Into<String> + Clone,
+{
+    fn from(string: Option<T>) -> Self {
+        Self {
+            html: string.clone().map(Into::into),
+            text: string.map(Into::into),
+        }
+    }
+}
+
+impl From<&FetchJobResultJobStepsOutput> for Output {
+    fn from(input: &FetchJobResultJobStepsOutput) -> Self {
+        Self {
+            html: input.html.clone(),
+            text: input.text.clone(),
+        }
+    }
+}
+
 /// The status of the job.
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub(crate) enum Status {
@@ -60,10 +118,10 @@ pub(crate) enum Status {
     Delivered,
 
     /// The server reported a successful run of the job.
-    Succeeded(String),
+    Succeeded(Output),
 
     /// The server either rejected the job, or the job failed while running.
-    Failed(String),
+    Failed(Output),
 }
 
 impl Default for Status {

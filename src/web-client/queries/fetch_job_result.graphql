@@ -8,6 +8,7 @@ query FetchJobResult($id: ID!) {
       status
       output {
         html
+        text
       }
     }
 

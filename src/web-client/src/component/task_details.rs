@@ -4,7 +4,7 @@
 
 use crate::app::App;
 use crate::component;
-use crate::model::job::{self, Job, Status};
+use crate::model::job::{self, Job};
 use crate::model::session::{self, AccessMode};
 use crate::model::task::{self, Task};
 use crate::utils;
@@ -60,9 +60,6 @@ trait Views<'b> {
     /// The list of variables belonging to the task.
     fn variables(&self, cx: &mut RenderContext<'b>) -> Node<'b>;
 
-    /// The resulting output after running a task.
-    fn results(&self, cx: &mut RenderContext<'b>) -> Node<'b>;
-
     /// The footer section of the task details. This contains the navigation
     /// buttons for exiting the details view, or running the task.
     fn footer(&self, cx: &mut RenderContext<'b>) -> Node<'b>;
@@ -113,7 +110,8 @@ where
 
         if let Some(job) = self.task.active_job() {
             if job.is_completed() {
-                body = body.child(self.results(cx))
+                let result = component::JobResult::<C>::new(job);
+                body = body.child(result.render(cx));
             }
         } else if !self.task.finished_jobs().is_empty() {
             let id = self.task.id();
@@ -159,42 +157,6 @@ where
 
         fieldset(&cx)
             .children(components.iter().map(|v| v.render(cx)).collect::<Vec<_>>())
-            .finish()
-    }
-
-    fn results(&self, cx: &mut RenderContext<'b>) -> Node<'b> {
-        use dodrio::builder::*;
-
-        let (class, title, body) = match self.task.active_job().map(|j| &j.status).unwrap_throw() {
-            Status::Succeeded(string) => ("is-success", "Success!", string),
-            Status::Failed(string) => ("is-danger", "Failed!", string),
-            _ => unreachable!(),
-        };
-
-        let class = BString::from_str_in(class, cx.bump).into_bump_str();
-        let header = BString::from_str_in(title, cx.bump).into_bump_str();
-        let body = BString::from_str_in(body.as_str(), cx.bump).into_bump_str();
-
-        let staging = div(&cx)
-            .attr("class", "message-staging")
-            .child(text(body))
-            .finish();
-
-        let header = div(&cx)
-            .attr("class", "message-header")
-            .child(p(&cx).child(text(header)).finish())
-            .finish();
-
-        let body = div(&cx).attr("class", "message-body").finish();
-
-        let details = article(&cx)
-            .attr("class", class)
-            .children([staging, header, body])
-            .finish();
-
-        div(&cx)
-            .attr("class", "job-response")
-            .child(div(&cx).child(div(&cx).child(details).finish()).finish())
             .finish()
     }
 

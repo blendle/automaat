@@ -42,9 +42,10 @@ $danger: #ff6255;
 
 // Components
 @import 'src/component/header';
-@import 'src/component/statistic';
+@import 'src/component/job_result';
 @import 'src/component/navbar';
-@import 'src/component/tasks';
-@import 'src/component/task_result';
+@import 'src/component/statistic';
 @import 'src/component/task_details';
+@import 'src/component/task_result';
+@import 'src/component/tasks';
 @import 'src/component/variable';

@@ -209,7 +209,12 @@ impl task::Actions for Controller {
 
                 match &result {
                     Ok(job_id) => job.remote_id = Some(job::RemoteId::new(job_id.to_string())),
-                    Err(err) => job.status = job::Status::Failed(err.join("\n")),
+                    Err(err) => {
+                        job.status = job::Status::Failed(job::Output {
+                            html: Some(err.join("\n")),
+                            text: None,
+                        })
+                    }
                 };
 
                 task.activate_job(job);
@@ -230,10 +235,10 @@ impl task::Actions for Controller {
 
     fn render_task_details(vdom: VdomWeak) -> Box<dyn Future<Item = (), Error = ()>> {
         let fut = vdom.render().then(|_| {
-            if let Some(el) = utils::element::<HtmlElement>(".job-response .message-staging") {
+            if let Some(el) = utils::element::<HtmlElement>(".job-result .staging") {
                 let raw_html = el.text_content().unwrap_throw();
 
-                utils::element::<HtmlElement>(".job-response .message-body")
+                utils::element::<HtmlElement>(".job-result .body")
                     .unwrap_throw()
                     .set_inner_html(&raw_html);
             };
@@ -349,44 +354,33 @@ impl job::Actions for Controller {
                         .unwrap_throw();
 
                     job.status = match result {
-                        Err(err) => Status::Failed(err.join("\n")),
+                        Err(err) => Status::Failed(Some(err.join("\n")).into()),
                         Ok(result) => match result.status {
                             SCHEDULED | PENDING | RUNNING => Status::Delivered,
                             FAILED | CANCELLED | OK => match result.steps.as_ref() {
-                                None => Status::Succeeded("task has no steps".to_owned()),
-                                Some(s) => {
-                                    let step = match s
+                                None => Status::Succeeded(Some("task has no steps").into()),
+                                Some(steps) => {
+                                    let step = match steps
                                         .iter()
-                                        .find(|s| s.status == JobStepStatus::FAILED)
+                                        .find(|step| step.status == JobStepStatus::FAILED)
                                     {
                                         Some(s) => s,
-                                        None => s.last().unwrap_throw(),
+                                        None => steps.last().unwrap_throw(),
                                     };
 
-                                    let message = step
-                                        .output
-                                        .html
-                                        .as_ref()
-                                        .map_or("unknown error".to_owned(), String::to_owned);
-
                                     match &step.status {
-                                        S::OK => Status::Succeeded(message),
-                                        S::INITIALIZED
-                                        | S::PENDING
-                                        | S::RUNNING
-                                        | S::FAILED
-                                        | S::CANCELLED => Status::Failed(message),
-                                        _non_exhaustive => unreachable!(),
+                                        S::OK => Status::Succeeded((&step.output).into()),
+                                        _ => Status::Failed((&step.output).into()),
                                     }
                                 }
                             },
-                            _non_exhaustive => unreachable!(),
+                            _unknown => unreachable!(),
                         },
                     };
 
                     if tries > 120 && job.is_running() {
                         job.status =
-                            Status::Failed("timeout waiting for job to complete".to_owned());
+                            Status::Failed(Some("timeout waiting for job to complete").into());
                     }
 
                     let status = job.status.clone();

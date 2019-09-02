@@ -1,0 +1,31 @@
+.job-result {
+  @extend .message;
+
+  &.success { @extend .is-success; }
+  &.failed { @extend .is-danger; }
+
+  margin-top: 1.5rem;
+
+  header {
+    @extend .message-header;
+
+    > div {
+      @extend .level;
+
+      > .status { @extend .level-left; }
+      > .actions { @extend .level-right; }
+
+      > .status,
+      > .actions { > div { @extend .level-item; } }
+    }
+  }
+
+  section {
+    @extend .message-body;
+    @extend .content;
+
+    li { margin-top: 0; }
+
+    &.staging { display: none; }
+  }
+}
