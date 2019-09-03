@@ -82,9 +82,12 @@ impl MutationRoot {
     fn createTask(context: &RequestState, task: CreateTaskInput) -> FieldResult<Task> {
         authorization_guard(&["mutation_create_task"], &context.session)?;
 
-        NewTask::try_from(&task)?
-            .create(&context.conn)
-            .map_err(Into::into)
+        let new_task = NewTask::try_from(&task)?;
+        match &task.on_conflict.as_ref().unwrap_or(&OnConflict::Abort) {
+            OnConflict::Abort => new_task.create(&context.conn),
+            OnConflict::Update => new_task.create_or_update(&context.conn),
+        }
+        .map_err(Into::into)
     }
 
     /// Create a job from an existing task ID.

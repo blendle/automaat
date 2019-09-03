@@ -1,3 +1,4 @@
+use super::OnConflict;
 use crate::models::NewGlobalVariable;
 use serde::{Deserialize, Serialize};
 
@@ -13,14 +14,7 @@ pub(crate) mod graphql {
     //! mutation, and type documentation.
 
     use super::*;
-    use juniper::{GraphQLEnum, GraphQLInputObject};
-
-    /// Define what to do when a conflict occurs on object mutation.
-    #[derive(Clone, Debug, Deserialize, Serialize, GraphQLEnum)]
-    pub(crate) enum OnConflict {
-        Abort,
-        Update,
-    }
+    use juniper::GraphQLInputObject;
 
     /// Create a new global variable.
     #[derive(Clone, Debug, Deserialize, Serialize, GraphQLInputObject)]

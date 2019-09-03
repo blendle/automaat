@@ -51,10 +51,10 @@ pub(crate) struct Variable {
 /// Contains all the details needed to store a variable in the database.
 ///
 /// Use [`NewVariable::new`] to initialize this struct.
-#[derive(Clone, Debug, Deserialize, Serialize, Insertable)]
+#[derive(Clone, Debug, Deserialize, Serialize, Insertable, AsChangeset)]
 #[table_name = "variables"]
 pub(crate) struct NewVariable<'a> {
-    key: &'a str,
+    pub(crate) key: &'a str,
     description: Option<&'a str>,
     selection_constraint: Option<Vec<&'a str>>,
     default_value: Option<&'a str>,
@@ -99,15 +99,24 @@ impl<'a> NewVariable<'a> {
     /// association.
     ///
     /// Requires a reference to a Task, in order to create the correct data
-    /// reference.
-    pub(crate) fn add_to_task(mut self, conn: &PgConnection, task: &Task) -> QueryResult<()> {
-        use crate::schema::variables::dsl::*;
-        self.task_id = Some(task.id);
+    /// reference. The task ID can be set to None (and is ignored) if the
+    /// intention is to update the variable.
+    ///
+    /// If a variable with the same name is already assigned to the task, it
+    /// will be updated.
+    pub(crate) fn create_or_update(mut self, conn: &PgConnection, task: &Task) -> QueryResult<()> {
+        if self.task_id.is_none() {
+            self.task_id = Some(task.id);
+        }
 
-        diesel::insert_into(variables)
+        diesel::insert_into(variables::table)
             .values(&self)
+            .on_conflict((variables::key, variables::task_id))
+            .do_update()
+            .set(&self)
             .execute(conn)
             .map(|_| ())
+            .map_err(Into::into)
     }
 }
 

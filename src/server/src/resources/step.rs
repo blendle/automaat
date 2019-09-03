@@ -6,7 +6,7 @@
 //! [`Processor`]: crate::Processor
 
 use crate::resources::Task;
-use crate::schema::steps;
+use crate::schema::{steps, variable_advertisements};
 use crate::{server::RequestState, Processor};
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -43,11 +43,12 @@ impl Step {
 /// Use [`NewStep::new`] to initialize this struct.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub(crate) struct NewStep<'a> {
-    name: &'a str,
+    pub(crate) name: &'a str,
     description: Option<&'a str>,
     processor: Processor,
     position: i32,
     advertised_variable_key: Option<&'a str>,
+    task_id: Option<i32>,
 }
 
 impl<'a> NewStep<'a> {
@@ -66,6 +67,7 @@ impl<'a> NewStep<'a> {
             processor,
             position,
             advertised_variable_key,
+            task_id: None,
         }
     }
 
@@ -81,7 +83,10 @@ impl<'a> NewStep<'a> {
     ///
     /// This method can return an error if the database insert failed, or if the
     /// step processor cannot be serialized.
-    pub(crate) fn add_to_task(
+    ///
+    /// If a step with the same name is already assigned to the task, it will be
+    /// updated.
+    pub(crate) fn create_or_update(
         self,
         conn: &PgConnection,
         task: &Task,
@@ -92,20 +97,29 @@ impl<'a> NewStep<'a> {
             steps::name.eq(&self.name),
             steps::description.eq(&self.description),
             steps::processor.eq(serde_json::to_value(self.processor)?),
-            steps::position.eq(self.position),
-            steps::task_id.eq(task.id),
+            steps::position.eq(&self.position),
+            steps::task_id.eq(self.task_id.unwrap_or(task.id)),
         );
 
         let advertised_key = &self.advertised_variable_key;
 
         conn.transaction(move || {
+            let _ = conn.execute("SET CONSTRAINTS ALL DEFERRED")?;
+
             let step: Step = diesel::insert_into(steps::table)
-                .values(values)
+                .values(&values)
+                .on_conflict((steps::name, steps::task_id))
+                .do_update()
+                .set(values.clone())
                 .get_result(conn)
                 .map_err(Into::<Box<dyn Error>>::into)?;
 
             if let Some(key) = advertised_key {
-                let _ = NewVariableAdvertisement::new(key, step.id).create(conn)?;
+                let _ = NewVariableAdvertisement::new(key, step.id).create_or_update(conn)?;
+            } else {
+                let filter = variable_advertisements::table
+                    .filter(variable_advertisements::step_id.eq(step.id));
+                let _ = diesel::delete(filter).execute(conn)?;
             };
 
             Ok(())

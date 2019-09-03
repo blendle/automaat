@@ -36,10 +36,13 @@ impl<'a> NewVariableAdvertisement<'a> {
         Self { key, step_id }
     }
 
-    ///// Save the new variable advertisement in the database.
-    pub fn create(self, conn: &PgConnection) -> QueryResult<VariableAdvertisement> {
+    /// Save or update the variable advertisement in the database.
+    pub fn create_or_update(self, conn: &PgConnection) -> QueryResult<VariableAdvertisement> {
         diesel::insert_into(variable_advertisements::table)
             .values(&self)
+            .on_conflict(variable_advertisements::step_id)
+            .do_update()
+            .set(&self)
             .get_result(conn)
     }
 }
