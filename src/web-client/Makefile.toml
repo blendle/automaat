@@ -129,7 +129,19 @@ disabled = true
 private = true
 disabled = true
 
-[tasks.run]
+[tasks.run-server]
+private = true
+disabled = true
+
+[tasks.run-worker]
+private = true
+disabled = true
+
+[tasks.watch-server]
+private = true
+disabled = true
+
+[tasks.watch-worker]
 private = true
 disabled = true
 

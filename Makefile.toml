@@ -6,6 +6,9 @@ LATEST_SERVER_TAG = { script = ["git -c 'versionsort.suffix=-' tag --list --sort
 LATEST_CLIENT_TAG = { script = ["git -c 'versionsort.suffix=-' tag --list --sort=-v:refname 'automaat-web-client-*' | awk -F- '{print $NF}'"] }
 CONTAINER_RELEASE_IMG = "blendle/automaat:server-v${LATEST_SERVER_TAG}_web-client-v${LATEST_CLIENT_TAG}"
 CONTAINER_DEVELOP_IMG = "blendle/automaat:latest"
+SERVER_ROOT = "${CARGO_MAKE_WORKING_DIRECTORY}/src/web-client/static"
+DATABASE_URL = "postgres://postgres@localhost"
+ENCRYPTION_SECRET = "default secret"
 
 [tasks.test]
 description = "Run all tests."
@@ -24,24 +27,46 @@ dependencies = [
 ]
 
 [tasks.watch]
-description = "Watch for file changes, build the web client and run the server."
+description = "Watch for file changes, build the web client and run the server. The worker is not started."
 category = "Development"
 workspace = false
 watch = { ignore_pattern = "{tmp/**/*,src/web-client/static/app/**/*,src/web-client/static/css/style.css,src/web-client/static/css/style.css.map}" }
 script = [
   '''
   cargo make --cwd src/web-client debug && \
-  cargo make run
+  cargo make run-server
   '''
 ]
 
-[tasks.run]
+[tasks.watch-server]
+description = "Watch for file changes and run the server."
+category = "Development"
+workspace = false
+watch = { ignore_pattern = "{tmp/**/*,src/web-client/static/app/**/*,src/web-client/static/css/style.css,src/web-client/static/css/style.css.map}" }
+command = "cargo"
+args = ["make", "run-server"]
+
+[tasks.watch-worker]
+description = "Watch for file changes and run the worker."
+category = "Development"
+workspace = false
+watch = { ignore_pattern = "{tmp/**/*,src/web-client/static/app/**/*,src/web-client/static/css/style.css,src/web-client/static/css/style.css.map}" }
+command = "cargo"
+args = ["make", "run-worker"]
+
+[tasks.run-server]
 description = "Run the API server."
 category = "Development"
 workspace = false
-env = { "SERVER_ROOT" = "${CARGO_MAKE_WORKING_DIRECTORY}/src/web-client/static", "DATABASE_URL" = "postgres://postgres@localhost" }
 command = "cargo"
-args = ["run", "--bin", "automaat-server", "--all-features"]
+args = ["run", "--all-features", "--", "server"]
+
+[tasks.run-worker]
+description = "Run the API worker."
+category = "Development"
+workspace = false
+command = "cargo"
+args = ["run", "--all-features", "--", "worker"]
 
 [tasks.build-container-latest]
 description = "Build a release Docker container (using the `latest` tag), including the server and web-client dependencies."
