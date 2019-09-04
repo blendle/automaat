@@ -15,8 +15,9 @@
 //!
 //! [`variable`]: crate::resources::variable
 
+use super::OnConflict;
 use crate::resources::{NewStep, NewVariable, Step, Variable};
-use crate::schema::{jobs, tasks};
+use crate::schema::{jobs, steps, tasks, variables};
 use crate::server::RequestState;
 use diesel::dsl::sql;
 use diesel::prelude::*;
@@ -198,17 +199,86 @@ impl<'a> NewTask<'a> {
             );
 
             let task = diesel::insert_into(tasks).values(values).get_result(conn)?;
-
-            self.variables
-                .into_iter()
-                .try_for_each(|variable| variable.add_to_task(conn, &task))?;
-
-            self.steps
-                .into_iter()
-                .try_for_each(|step| step.add_to_task(conn, &task))?;
+            self.create_or_update_associations(&task, conn)?;
 
             Ok(task)
         })
+    }
+
+    /// Persist the task and any attached variables and steps into the
+    /// database.
+    ///
+    /// If the task already exists, it will be updated, as will any
+    /// associations, if they have changed.
+    pub(crate) fn create_or_update(
+        self,
+        conn: &PgConnection,
+    ) -> Result<Task, Box<dyn error::Error>> {
+        use diesel::dsl::{any, not};
+        use diesel::insert_into;
+
+        conn.build_transaction().deferrable().run(|| {
+            let values = (
+                tasks::name.eq(&self.name),
+                tasks::description.eq(&self.description),
+                tasks::labels.eq(&self.labels),
+            );
+
+            let task: Task = insert_into(tasks::table)
+                .values(&values)
+                .on_conflict(tasks::name)
+                .do_update()
+                .set(values)
+                .get_result(conn)?;
+
+            let steps_filter = steps::table.filter(steps::task_id.eq(task.id));
+
+            // The task has no steps associated with it, so remove any still
+            // existing in the database.
+            if self.steps.is_empty() {
+                let _ = diesel::delete(steps_filter).execute(conn)?;
+            } else {
+                // Delete any step not in the new collection.
+                let names: &Vec<_> = &self.steps.iter().map(|s| s.name).collect();
+
+                let _ = diesel::delete(steps_filter.filter(not(steps::name.eq(any(names)))))
+                    .execute(conn)?;
+            }
+
+            let variables_filter = variables::table.filter(variables::task_id.eq(task.id));
+
+            // The task has no variables associated with it, so remove any still
+            // existing in the database.
+            if self.variables.is_empty() {
+                let _ = diesel::delete(variables_filter).execute(conn)?;
+            } else {
+                // Delete any variables not in the new collection.
+                let keys: &Vec<_> = &self.variables.iter().map(|v| v.key).collect();
+
+                let _ = diesel::delete(variables_filter.filter(not(variables::key.eq(any(keys)))))
+                    .execute(conn)?;
+            }
+
+            self.create_or_update_associations(&task, conn)?;
+
+            Ok(task)
+        })
+    }
+
+    fn create_or_update_associations(
+        self,
+        task: &Task,
+        conn: &PgConnection,
+    ) -> Result<(), Box<dyn error::Error>> {
+        self.variables
+            .into_iter()
+            .try_for_each(|variable| variable.create_or_update(conn, task))?;
+
+        self.steps
+            .into_iter()
+            .try_for_each(|step| step.create_or_update(conn, task))?;
+
+        Ok(())
     }
 }
 
@@ -266,6 +336,17 @@ pub(crate) mod graphql {
         /// Not providing any steps will be considered an error in a future
         /// version of this API.
         pub(crate) steps: Vec<CreateStepInput>,
+
+        /// Define what to do when the task already exists.
+        ///
+        /// By default, updating an existing task is disallowed, to prevent
+        /// accidentally overriding existing tasks.
+        ///
+        /// You can set this value to `UPDATE` to force the existing task to be
+        /// updated to the newly provided value.
+        ///
+        /// NOTE that a task name or ID cannot be updated at the moment.
+        pub(crate) on_conflict: Option<OnConflict>,
     }
 
     /// An optional set of input details to filter a set of `Task`s, based

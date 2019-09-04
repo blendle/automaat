@@ -5,7 +5,7 @@ mod step;
 mod task;
 pub(crate) mod variable;
 
-pub(crate) use global_variable::graphql::{GlobalVariableInput, OnConflict};
+pub(crate) use global_variable::graphql::GlobalVariableInput;
 pub(crate) use job::step::{
     JobStep, NewJobStep, Status as JobStepStatus, StatusMapping as JobStepStatusMapping,
 };
@@ -20,3 +20,10 @@ pub(crate) use task::{
     NewTask, Task,
 };
 pub(crate) use variable::{graphql::CreateVariableInput, NewVariable, Variable};
+
+/// Define what to do when a conflict occurs on object mutation.
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, juniper::GraphQLEnum)]
+pub(crate) enum OnConflict {
+    Abort,
+    Update,
+}

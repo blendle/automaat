@@ -25,6 +25,7 @@ input CreateTaskInput {
   labels: [String!]
   variables: [CreateVariableInput!]
   steps: [CreateStepInput!]!
+  onConflict: OnConflict
 }
 
 input CreateVariableInput {
