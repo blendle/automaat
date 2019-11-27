@@ -12,9 +12,3 @@ members = [
   "src/server",
 ]
 exclude = ["src/web-client"]
-
-[patch.crates-io]
-# waiting for: http://git.io/fjwsN
-json-query = { git = "https://github.com/JeanMertz/json-query", branch = "newline" }
-# waiting for: http://git.io/fjwls
-jq-src = { git = "https://github.com/onelson/jq-src", branch = "master" }

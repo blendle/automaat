@@ -208,7 +208,7 @@ impl<'a> Processor<'a> for JsonEdit {
     /// to serialize or deserialize the input/output JSON.
     fn run(&self, _context: &Context) -> Result<Option<Self::Output>, Self::Error> {
         let mut output = vec![];
-        let json = json_query::run(self.program.as_str(), self.json.as_str())?;
+        let json = jq_rs::run(self.program.as_str(), self.json.as_str())?;
 
         // The jq program can return multiple lines of JSON if an array is
         // unpacked.
@@ -234,10 +234,11 @@ impl<'a> Processor<'a> for JsonEdit {
 ///
 /// This type is not intended to be exhaustively matched, and new variants may
 /// be added in the future without a major version bump.
+#[allow(variant_size_differences)]
 #[derive(Debug)]
 pub enum Error {
     /// A syntax error.
-    Json(String),
+    Json(jq_rs::Error),
 
     /// An error during serialization or deserialization.
     Serde(serde_json::Error),
@@ -259,15 +260,15 @@ impl fmt::Display for Error {
 impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match *self {
-            Error::Json(_) => None,
+            Error::Json(ref err) => Some(err),
             Error::Serde(ref err) => Some(err),
             Error::__Unknown => unreachable!(),
         }
     }
 }
 
-impl From<String> for Error {
-    fn from(err: String) -> Self {
+impl From<jq_rs::Error> for Error {
+    fn from(err: jq_rs::Error) -> Self {
         Error::Json(err)
     }
 }
