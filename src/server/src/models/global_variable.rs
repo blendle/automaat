@@ -56,7 +56,7 @@ impl<'a> NewGlobalVariable<'a> {
     /// If an existing variable exists with the same key, this method will
     /// return an error. If you want to "upsert" a variable, use
     /// `create_or_update`.
-    pub fn create(self, conn: &PgConnection) -> QueryResult<GlobalVariable> {
+    pub(crate) fn create(self, conn: &PgConnection) -> QueryResult<GlobalVariable> {
         use diesel::insert_into;
 
         insert_into(global_variables::table)
@@ -67,7 +67,7 @@ impl<'a> NewGlobalVariable<'a> {
 
     /// Save the new global variable in the database, or update a variable
     /// matching the key.
-    pub fn create_or_update(self, conn: &PgConnection) -> QueryResult<GlobalVariable> {
+    pub(crate) fn create_or_update(self, conn: &PgConnection) -> QueryResult<GlobalVariable> {
         use diesel::insert_into;
 
         insert_into(global_variables::table)

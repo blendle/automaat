@@ -37,7 +37,10 @@ impl<'a> NewVariableAdvertisement<'a> {
     }
 
     /// Save or update the variable advertisement in the database.
-    pub fn create_or_update(self, conn: &PgConnection) -> QueryResult<VariableAdvertisement> {
+    pub(crate) fn create_or_update(
+        self,
+        conn: &PgConnection,
+    ) -> QueryResult<VariableAdvertisement> {
         diesel::insert_into(variable_advertisements::table)
             .values(&self)
             .on_conflict(variable_advertisements::step_id)

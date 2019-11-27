@@ -259,6 +259,7 @@ impl SqlQuery {
                 // To get some guidance, see the following URL:
                 //
                 // https://docs.rs/postgres/0.16.0-rc.2/postgres/types/trait.FromSql.html
+                #[allow(indirect_structural_match)] // see: http://git.io/JeXc3
                 let value: Value = match column.type_() {
                     &T::BOOL => to_value::<Option<bool>>(row.get(n))?,
                     &T::INT4 => to_value::<Option<i32>>(row.get(n))?,
