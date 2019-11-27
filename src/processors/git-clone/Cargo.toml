@@ -21,7 +21,7 @@ edition = "2018"
 travis-ci = { repository = "blendle/automaat" }
 
 [dependencies]
-git2 = "0.8"
+git2 = { version = "0.8", default-features = false, features = ["https"] }
 juniper = { version = "0.13", optional = true }
 serde = { version = "1", features = ["derive"] }
 url = "1"
