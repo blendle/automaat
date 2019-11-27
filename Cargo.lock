@@ -421,14 +421,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "autotools"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "cc 1.0.37 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "awc"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1303,19 +1295,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "jq-src"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "autotools 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "jq-sys"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "jq-src 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "pkg-config 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -3164,7 +3147,6 @@ dependencies = [
 "checksum arrayvec 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)" = "92c7fb76bc8826a8b33b4ee5bb07a247a81e76764ab4d55e8f73e3a4d8808c71"
 "checksum ascii 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)" = "a5fc969a8ce2c9c0c4b0429bb8431544f6658283c8326ba5ff8c762b75369335"
 "checksum autocfg 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "0e49efa51329a5fd37e7c79db4621af617cd4e3e5bc224939808d076077077bf"
-"checksum autotools 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "774fd1b2d459a939302a0bad631a3de176b8bd5f87cbfc28ceb1f6c18d731094"
 "checksum awc 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "c5133e9ca1d7f0560fb271f20286be3e896dac5736040a62a7ef1d62003160b6"
 "checksum backtrace 0.3.30 (registry+https://github.com/rust-lang/crates.io-index)" = "ada4c783bb7e7443c14e0480f429ae2cc99da95065aeab7ee1b81ada0419404f"
 "checksum backtrace-sys 0.1.28 (registry+https://github.com/rust-lang/crates.io-index)" = "797c830ac25ccc92a7f8a7b9862bde440715531514594a6154e3d4a54dd769b6"
@@ -3262,7 +3244,6 @@ dependencies = [
 "checksum itertools 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5b8467d9c1cebe26feb08c640139247fac215782d35371ade9a2136ed6085358"
 "checksum itoa 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)" = "501266b7edd0174f8530248f87f99c88fbe60ca4ef3dd486835b8d8d53136f7f"
 "checksum jq-rs 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "c9cfaeae42ef96b227ab787558cc7bbd5f1dfe96b4df7c63f92853017751b0e4"
-"checksum jq-src 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ae23a0c161dda65b96213574a016d314bce32e7060b6587c1c7d3c612c66b4b5"
 "checksum jq-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "81b65b7e54bd2fffc8cb20cbcf19f40d3158dab5cf5b5adb1f65f9b35eba4c48"
 "checksum juniper 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)" = "aa942ca32bedb69c660c77bc08addd9a38bc7b12c98f8b9d07a9d858751dc372"
 "checksum juniper_codegen 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)" = "db7c2cc4f1a3261aca29dddf38fefb9703a22c66d8a55a63ebcc6175d7f90bc6"
