@@ -227,6 +227,7 @@ type Session {
 type ShellCommand {
   command: String!
   arguments: [String!]
+  stdin: String
   cwd: String
   paths: [String!]
 }
@@ -234,6 +235,7 @@ type ShellCommand {
 input ShellCommandInput {
   command: String!
   arguments: [String!]
+  stdin: String
   cwd: String
   paths: [String!]
 }
