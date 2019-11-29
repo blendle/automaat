@@ -108,6 +108,10 @@ where
 
         let mut body = div(&cx).child(div(&cx).child(details.finish()).finish());
 
+        // TODO: remove the concept of "active jobs"? You just have a list of
+        // jobs attached to their tasks, and they have state (running, finished,
+        // etc)... I need to figure out why this active job thing was added in
+        // the first place, but I suspect we don't need it anymore.
         if let Some(job) = self.task.active_job() {
             if job.is_completed() {
                 let result = component::JobResult::<C>::new(job);
