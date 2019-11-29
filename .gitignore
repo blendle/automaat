@@ -4,3 +4,4 @@
 /src/web-client/target
 /target
 /tmp
+cargo-timing*
