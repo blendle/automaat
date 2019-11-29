@@ -98,3 +98,63 @@
 
   > div:first-child { @extend .modal-background; }
 }
+
+// TODO: This styles the "task menu". This menu is not enabled yet, but the styling is committed to
+// keep it around when the menu is enabled.
+//
+// see: https://bulma.io/documentation/components/dropdown/#dropdown-content
+//
+.menu {
+  @extend .dropdown;
+  @extend .is-up;
+  @extend .is-right;
+
+  margin-right: 0.6em;
+
+  > div:nth-child(1) > button {
+    @extend %button-with-icon-first;
+    i::before { content: "\f805"; } // hamburger
+  }
+
+  div[role=menu] {
+    > div { @extend .dropdown-content; }
+  }
+
+  p {
+    @extend .is-size-7;
+    @extend .has-text-grey;
+  }
+
+  a { @extend .has-text-grey-dark; }
+  hr { @extend .dropdown-divider; }
+
+  .dropdown-menu > div > div > {
+    div,
+    a {
+      @extend .dropdown-item;
+    }
+  }
+
+  .help {
+    a {
+      @extend .is-uppercase;
+      @extend .has-text-weight-semibold;
+      @extend .has-text-success;
+      i::before { content: "\f1cd"; } // life-ring
+    }
+
+    i::before { content: "\f5b8"; } // smile-beam
+  }
+
+  .one-click {
+    i::before { content: "\f04e"; } // forward
+  }
+
+  .favourite {
+    i::before { content: "\f005"; } // star
+  }
+
+  .last-result {
+    i::before { content: "\f2f9"; } // redo-alt
+  }
+}

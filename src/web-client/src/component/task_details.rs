@@ -163,6 +163,9 @@ where
     fn footer(&self, cx: &mut RenderContext<'b>) -> Node<'b> {
         use dodrio::builder::*;
 
+        // TODO: for when the menu is added back
+        // let btn_menu = component::TaskMenu::<C>::new(true);
+
         let action = if self.task.show_login {
             self.field_login(cx)
         } else {
