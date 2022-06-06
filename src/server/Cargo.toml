@@ -23,7 +23,7 @@ travis-ci = { repository = "blendle/automaat" }
 
 [dependencies]
 actix-files = "0.1"
-actix-service = "0.4"
+actix-service = "1.0"
 actix-web = { version = "1.0", default-features = false, features = [
   "brotli",
   "flate2-zlib",
