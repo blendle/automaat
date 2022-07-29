@@ -22,10 +22,10 @@ travis-ci = { repository = "blendle/automaat" }
 
 [dependencies]
 automaat-core = { version = "0.1", path = "../../core" }
-juniper = { version = "0.13", optional = true }
+juniper = { version = "0.15", optional = true }
 serde = { version = "1", features = ["derive"] }
 strip-ansi-escapes = "0.1"
 
 [dev-dependencies]
-juniper = "0.13"
+juniper = "0.15"
 version-sync = "0.8"
